@@ -176,22 +176,26 @@ The order of work, from the beginning to now:
 
 ## Data format
 
-Each `data/atlas_<key>.json` contains:
+Each `data/atlas_<key>.json` uses the versioned little-endian `ha-mesh-v2` format (the viewer also retains validated backward compatibility with legacy v1 bundles):
 
 ```json
 {
-  "b": "<base64 binary>",
+  "v": 2,
+  "fmt": "ha-mesh-v2",
+  "endian": "le",
+  "gen": "<16-hex SHA-256 ordinal digest matching BL[key].gen>",
+  "b": "<base64 little-endian binary>",
   "m": {
     "mn": [x, y, z],
     "sc": 1.7,
-    "meta": [["Object_name.r", vertexCount, triangleCount, vertexOffset, indexOffset], "..."]
+    "meta": [["Object_name.r", vertexCount, triangleCount, vertexByteOffset, indexByteOffset, "u16|f32", [ox, oy, oz], [sx, sy, sz]], "..."]
   }
 }
 ```
 
-- The binary holds all vertex positions (3 × quantized `uint16` per vertex) followed by all triangle indices (`uint16`).
-- World position is computed as `mn + value / 65535 × sc` on each axis.
-- `vertexOffset` and `indexOffset` are counted in `uint16` units within the same binary stream.
+- Binary blocks are laid out contiguously in little-endian byte order: all 4-byte-aligned `float32` vertex blocks first (`12 B/vertex`), then 2-byte-aligned per-mesh quantized `uint16` vertex blocks (`6 B/vertex`), then 2-byte-aligned `uint16` triangle index blocks (`6 B/triangle`, with `vertexCount <= 65535` so indices never emit `65535`, reserved in WebGL 2.0 for primitive restart).
+- For `u16` meshes, world position is computed per axis as `ox + value / 65535 × sx` (decoded explicitly via `DataView.getUint16(..., true)`); `f32` meshes store exact IEEE-754 coordinates (`DataView.getFloat32(..., true)`).
+- `gen` binds each JSON geometry bundle to its sidebar ordinal mapping (`BL[key].gen`) in `index.html`; the viewer validates format version, byte order, generation hash, finite bounds, buffer ranges, face indices, and sidebar references before attaching any mesh to the scene.
 - The lists of names, groups, and description text are in `index.html`:
   - `BL[key].g`: sidebar groups and items (`id`, `n` main name, `l` Latin, `e` English, `r` region, `s` side, `p` mesh indices, `d` description key, `g` when the explanation is general).
   - `DET[key]`: text (`desc`, `fn`, `nerve`, `blood`, `rel`, `clin`).
@@ -210,7 +214,7 @@ Each `data/atlas_<key>.json` contains:
 
 > The scripts in `tools/` are for reference: they use local paths and need the source OBJ file (not included because of its size). Adjust the paths before running them.
 
-Use [the HuBMAP import instructions](data/NOTICE.md#hubmap-reference-models) to regenerate the reference views. Check the shipped asset and sidebar mapping with `python3 tools/test_atlas_data.py`.
+Use [the HuBMAP import instructions](data/NOTICE.md#hubmap-reference-models) to regenerate the reference views, and validate source-vs-packed geometry gates with `python3 tools/validate_geometry.py <source-dir>` (recorded in [docs/GEOMETRY-VALIDATION.md](docs/GEOMETRY-VALIDATION.md)).
 
 ## Known limitations
 

@@ -174,22 +174,26 @@ Urutan pengerjaan, dari awal sampai sekarang:
 
 ## Format data
 
-Setiap `data/atlas_<kunci>.json` berisi:
+Setiap `data/atlas_<kunci>.json` memakai format biner *little-endian* berversi `ha-mesh-v2` (penampil tetap mendukung bundel v1 lama secara tervalidasi):
 
 ```json
 {
-  "b": "<base64 biner>",
+  "v": 2,
+  "fmt": "ha-mesh-v2",
+  "endian": "le",
+  "gen": "<ringkasan SHA-256 16-heks yang cocok dengan BL[kunci].gen>",
+  "b": "<base64 biner little-endian>",
   "m": {
     "mn": [x, y, z],
     "sc": 1.7,
-    "meta": [["Nama_objek.r", jumlahVertex, jumlahSegitiga, offsetVertex, offsetIndeks], "..."]
+    "meta": [["Nama_objek.r", jumlahVertex, jumlahSegitiga, offsetByteVertex, offsetByteIndeks, "u16|f32", [ox, oy, oz], [sx, sy, sz]], "..."]
   }
 }
 ```
 
-- Biner terdiri dari semua posisi vertex (3 × `uint16` per vertex, dikuantisasi) diikuti semua indeks segitiga (`uint16`).
-- Posisi dunia dihitung sebagai `mn + nilai / 65535 × sc` pada setiap sumbu.
-- `offsetVertex` dan `offsetIndeks` dihitung dalam satuan `uint16` pada aliran biner yang sama.
+- Blok biner disusun berurutan dalam urutan byte *little-endian*: semua blok vertex `float32` selaras 4-byte (`12 B/vertex`), diikuti blok vertex `uint16` terkuantisasi per-mesh selaras 2-byte (`6 B/vertex`), lalu blok indeks segitiga `uint16` selaras 2-byte (`6 B/segitiga`, dengan `jumlahVertex <= 65535` agar indeks tidak pernah memakai nilai `65535` yang dicadangkan WebGL 2.0 untuk *primitive restart*).
+- Untuk mesh `u16`, posisi dunia dihitung per sumbu sebagai `ox + nilai / 65535 × sx` (didekode eksplisit lewat `DataView.getUint16(..., true)`); mesh `f32` menyimpan koordinat IEEE-754 eksak (`DataView.getFloat32(..., true)`).
+- `gen` mengikat bundel geometri JSON dengan pemetaan ordinal sidebar (`BL[kunci].gen`) di `index.html`; penampil memvalidasi versi format, urutan byte, hash generasi, batas koordinat, rentang buffer, indeks segitiga, dan referensi sidebar sebelum menambahkan mesh ke adegan 3D.
 - Daftar nama, kelompok, dan teks deskripsi ada di `index.html`:
   - `BL[kunci].g` — kelompok dan item sidebar (`id`, `n` nama utama, `l` Latin, `e` Inggris, `r` daerah, `s` sisi, `p` indeks mesh, `d` kunci deskripsi, `g` bila penjelasan bersifat umum).
   - `DET[kunci]` — teks (`desc`, `fn`, `nerve`, `blood`, `rel`, `clin`).
@@ -208,7 +212,7 @@ Setiap `data/atlas_<kunci>.json` berisi:
 
 > Skrip di `tools/` bersifat referensi: memakai path lokal dan butuh berkas OBJ sumber (tidak disertakan karena ukurannya). Sesuaikan path sebelum menjalankan.
 
-Ikuti [petunjuk impor HuBMAP](data/NOTICE.md#hubmap-reference-models) untuk membuat ulang tampilan rujukan. Periksa data dan pemetaan sidebar dengan `python3 tools/test_atlas_data.py`.
+Ikuti [petunjuk impor HuBMAP](data/NOTICE.md#hubmap-reference-models) untuk membuat ulang tampilan rujukan, lalu validasi geometri terhadap sumber GLB dengan `python3 tools/validate_geometry.py <direktori-sumber>` (hasil tercatat di [docs/GEOMETRY-VALIDATION.md](docs/GEOMETRY-VALIDATION.md)).
 
 ## Keterbatasan yang diketahui
 
