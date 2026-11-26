@@ -110,9 +110,17 @@ def topology_invariants(verts, faces):
 
     is_closed = (boundary == 0 and nonmanifold == 0)
     vol_ml = None
+    signed_vol = None
     if is_closed:
         v0, v1, v2 = verts[faces[:, 0]], verts[faces[:, 1]], verts[faces[:, 2]]
-        vol_ml = abs(float(np.einsum('ij,ij->i', v0, np.cross(v1, v2)).sum() / 6.0)) * 1e6
+        signed_vol = float(np.einsum('ij,ij->i', v0, np.cross(v1, v2)).sum() / 6.0)
+        vol_ml = abs(signed_vol) * 1e6
+
+    rounded = np.round(verts, 7)
+    _, inv7 = np.unique(rounded, axis=0, return_inverse=True)
+    wf7 = np.sort(inv7[faces], axis=1)
+    uniq_tris = np.unique(wf7, axis=0)
+    repeated_faces = int(len(faces) - len(uniq_tris))
 
     return {
         'boundary_edges': boundary,
@@ -120,6 +128,8 @@ def topology_invariants(verts, faces):
         'is_closed': is_closed,
         'components': components,
         'vol_ml': vol_ml,
+        'signed_vol': signed_vol,
+        'repeated_faces': repeated_faces,
     }
 
 
@@ -252,13 +262,17 @@ def extract_hra_source_meshes(layer, source_dir):
 
     raw_meshes = []
     for _, defs in groups:
-        for name, _, _, _, parts in defs:
+        for defn in defs:
+            name, parts = defn[0], defn[4]
             for model, pattern, side in parts:
                 matching = [node for node in models[model] if re.fullmatch(pattern, node)]
                 mesh_name = f'{name}.{side}' if side else name
                 for node in matching:
                     for vertices, faces in models[model].pop(node):
-                        for chunk_v, chunk_f in import_hra.mesh_chunks(vertices, faces):
+                        v64 = vertices.astype(np.float64)
+                        f64 = import_hra._dedupe_repeated_faces(v64, faces.astype(np.int64))
+                        f64 = import_hra._orient_closed_shell_outward(v64, f64)
+                        for chunk_v, chunk_f in import_hra.mesh_chunks(v64.astype(np.float32), f64):
                             raw_meshes.append((mesh_name, chunk_v.astype(np.float64), chunk_f.astype(np.int64)))
     return raw_meshes
 
@@ -338,6 +352,10 @@ def validate_tier1_hra(source_dir):
                 failures.append(f'{layer}/{sname}: rel_vol_err={rel_vol_err:.6f} > {GATE_MAX_REL_VOL_ERR}')
             if not topo_ok:
                 failures.append(f'{layer}/{sname}: topology drift src={topo_s} dec={topo_d}')
+            if topo_d.get('repeated_faces', 0) > 0:
+                failures.append(f'{layer}/{sname}: repeated_faces={topo_d["repeated_faces"]} > 0')
+            if topo_d['is_closed'] and topo_d.get('signed_vol') is not None and topo_d['signed_vol'] < 0.0:
+                failures.append(f'{layer}/{sname}: inverted closed-shell winding (signed_vol={topo_d["signed_vol"]:.3e})')
 
             layer_rows.append({
                 'name': sname, 'enc': enc, 'nv': len(sv), 'nf': len(sf),
@@ -379,6 +397,8 @@ def validate_tier2_landmarks(source_dir):
         ('Ascending_aorta', 'Left_coronary_artery.l'),
         ('Ascending_aorta', 'Right_coronary_artery.r'),
         ('Left_coronary_artery.l', 'Anterior_interventricular_artery'),
+        ('Left_coronary_artery.l', 'Circumflex_artery_of_heart.l'),
+        ('Circumflex_artery_of_heart.l', 'Left_marginal_artery.l'),
         ('Anterior_interventricular_artery', 'Diagonal_branches_of_lad_artery'),
         ('Right_coronary_artery.r', 'Posterior_interventricular_artery'),
         ('Right_coronary_artery.r', 'Right_marginal_artery.r'),
@@ -396,6 +416,8 @@ def validate_tier2_landmarks(source_dir):
         drift_um = abs(d_dec - d_src) * 1000.0
         if drift_um > GATE_MAX_LANDMARK_DRIFT_UM:
             failures.append(f'Heart junction {a} <-> {b}: drift={drift_um:.3f}um > {GATE_MAX_LANDMARK_DRIFT_UM}um')
+        if 'Circumflex_artery_of_heart.l' in (a, b) and d_dec > 1.0:
+            failures.append(f'Heart LCx proximity {a} <-> {b}: dist={d_dec:.3f}mm > 1.0mm')
         heart_landmarks.append({'a': a, 'b': b, 'src_mm': d_src, 'dec_mm': d_dec, 'drift_um': drift_um})
 
     # --- B. Urinary UPJ/UVJ connectivity & Ureter perpendicular centerline sections ---
@@ -424,8 +446,11 @@ def validate_tier2_landmarks(source_dir):
         _, spv, _ = [m for m in src_urin if m[0] == f'Renal_pelvis.{side}'][0]
         _, duv, duf, *_ = [m for m in dec_urin if m[0] == f'Ureter.{side}'][0]
 
-        # Identify UPJ landmark as ureter vertices closest to renal pelvis
-        d_pelv = np.array([np.linalg.norm(spv - p, axis=1).min() for p in suv])
+        # Identify UPJ landmark as ureter vertices closest to renal pelvis (vectorized chunks)
+        d_pelv = np.empty(len(suv), dtype=np.float64)
+        for ci in range(0, len(suv), 512):
+            diff = suv[ci:ci + 512, None, :] - spv[None, :, :]
+            d_pelv[ci:ci + 512] = np.sqrt(np.einsum('ijk,ijk->ij', diff, diff).min(axis=1))
         upj_center = suv[d_pelv < (d_pelv.min() + 0.002)].mean(axis=0)
 
         # Build centerline along superior-inferior axis (Y in glTF Y-up)
@@ -649,12 +674,18 @@ def render_markdown_report(tier1, tier2, inventory, failures):
         f'| **Total (19 layers)** | — | **{tot_size:.2f}** | — | **{tot_meshes:,}** | **{tot_faces:,}** | **{tot_zero:,}** | ≤ 65,534 |'
     )
     pct_drop = (1.0 - tot_zero / 11336.0) * 100.0
+    hra_mesh_total = sum(len(v['meshes']) for v in tier1.values())
+    hra_src_zero = sum(v['total_src_zero'] for v in tier1.values())
+    hra_new_zero = sum(v['total_new_zero'] for v in tier1.values())
+    otot_row = next((r for r in inventory if r['layer'] == 'otot'), None)
     lines.extend([
         '',
-        '### Summary of Precision Recovery',
-        f'- **Total zero-area triangles across all 19 layers:** dropped from **11,336 → {tot_zero:,}** (-{pct_drop:.1f}%), of which **846** are pre-existing zero-area faces inside the unquantized HuBMAP `v1.1/VH_M_Heart.glb` source itself (**0** new zero-area triangles introduced by packing across all 167 HRA meshes!).',
+        '### Summary of Precision Recovery & Anatomical Remediation',
+        f'- **Total zero-area triangles across all 19 layers:** dropped from **11,336 → {tot_zero:,}** (-{pct_drop:.1f}%), with **{hra_src_zero}** pre-existing zero-area faces in the unquantized HuBMAP source GLBs and **{hra_new_zero}** new zero-area triangles introduced by packing across all **{hra_mesh_total}** HRA meshes.',
         '- **Legacy `vsKa` (`Central_retinal_artery`):** restored from **230 → 98** zero-area faces by recovering the exact un-degraded `bc3f6f9` per-mesh quantization lattices (`4.28 µm` step vs `6.76 µm` regression) with zero extra binary payload.',
-        f'- **Disk overhead:** selective `f32` on 6 thin/sliver HRA meshes (`Right_atrium.r`, `Left_coronary_artery.l`, `Superior_vena_cava`, `Urinary_bladder`, `Prostatic_urethra`, `Remaining_urethra`) plus per-mesh `v2` metadata increases total release size from `63.57 MiB` to `{tot_size:.2f} MiB` (+{tot_size - 63.57:.2f} MiB).',
+        '- **HuBMAP HRA Phase A/B fixes (`tools/import_hra.py`):** split `Circumflex_artery_of_heart` (LCx) from upstream mislabeled `VH_M_diagonal_branch_of_left_anterior_descending_artery` (`FMA:3860`), restored all 5 previously dropped GLB nodes (`Renal_hilum.l/.r` in `urin`; `Duodenal_ampulla`, `Hepatopancreatic_ampulla_sphincter`, `Minor_duodenal_papilla` in `ususHalus`), removed within-mesh repeated triangles, and oriented all closed/nearly-closed shells to positive outward CCW winding.',
+        f'- **Z-Anatomy Phase A/B fixes (`tools/repair_bundles.py`, `tools/rebuild_z_anatomy.py`):** stripped 12 coplanar `Diaphragm` origin stickers (`Diaphragm.o*`) from `organ` to eliminate z-fighting; rebuilt `otot` directly from Z-Anatomy `Startup.blend` (`4: Muscular system`) restoring **{otot_row["meshes"] if otot_row else 462}** full 3D muscle bellies (replacing 80 enthesis-only bone stickers, resolving all 32 left/right swaps, fixing swapped Trapezius Ascending/Descending parts, and rescuing `Semitendinosus`, `Adductor*`, `Abductor*`, and `Tensor_fasciae_latae`); recovered contralateral `Transverse_sinus.r` (`vsKv`) and `Axillary_vein.l` (`vsLe`); relocated `Subcostal_artery` and `Inferior_phrenic_artery` from `vsTo` to `vsAb` and removed 3 orphaned Z-Anatomy coronary fragments from `vsTo`.',
+        f'- **Release footprint:** total across all 19 `ha-mesh-v2` bundles is **{tot_size:.2f} MiB** (selective `f32` on 6 thin/sliver HRA meshes: `Right_atrium.r`, `Left_coronary_artery.l`, `Superior_vena_cava`, `Urinary_bladder`, `Prostatic_urethra`, `Remaining_urethra`).',
         '',
     ])
     return '\n'.join(lines)

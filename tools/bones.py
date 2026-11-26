@@ -1,5 +1,10 @@
 import json,re
-M=json.load(open('meta.json')); meta=M['meta']
+M=None; meta=None
+def _load_meta():
+    global M, meta
+    if M is None:
+        M=json.load(open('meta.json')); meta=M['meta']
+    return meta
 ORD={'First':1,'Second':2,'Third':3,'Fourth':4,'Fifth':5,'Sixth':6,'Seventh':7,'Eighth':8,'Ninth':9,'Tenth':10,'Eleventh':11,'Twelfth':12}
 ROM=['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
 B={'Parietal_bone':('Tulang Parietal','Os parietale'),'Frontal_bone':('Tulang Frontal','Os frontale'),'Occipital_bone':('Tulang Oksipital','Os occipitale'),'Temporal_bone':('Tulang Temporal','Os temporale'),'Sphenoid_bone':('Tulang Sfenoid','Os sphenoidale'),'Ethmoid_bone':('Tulang Etmoid','Os ethmoidale'),'Sinus_of_frontal_bone':('Sinus Frontal','Sinus frontalis'),'Sinus_of_sphenoid_bone':('Sinus Sfenoid','Sinus sphenoidalis'),'Inferior_nasal_concha_bone':('Konka Nasal Inferior','Concha nasalis inferior'),'Lacrimal_bone':('Tulang Lakrimal','Os lacrimale'),'Nasal_bone':('Tulang Hidung','Os nasale'),'Maxilla':('Tulang Rahang Atas','Maxilla'),'Palatine_bone':('Tulang Palatinum','Os palatinum'),'Zygomatic_bone':('Tulang Pipi','Os zygomaticum'),'Vomer':('Tulang Vomer','Vomer'),'Mandible':('Rahang Bawah','Mandibula'),'Hyoid_bone':('Tulang Hioid','Os hyoideum'),'Malleus':('Maleus','Malleus'),'Incus':('Inkus','Incus'),'Stapes':('Stapes','Stapes'),
@@ -9,6 +14,15 @@ B={'Parietal_bone':('Tulang Parietal','Os parietale'),'Frontal_bone':('Tulang Fr
 'Capitate_bone':('Tulang Kapitatum','Os capitatum'),'Hamate_bone':('Tulang Hamatum','Os hamatum'),'Lunate_bone':('Tulang Lunatum','Os lunatum'),'Pisiform_bone':('Tulang Pisiformis','Os pisiforme'),'Scaphoid_bone':('Tulang Skafoid','Os scaphoideum'),'Trapezium_bone':('Tulang Trapezium','Os trapezium'),'Trapezoid_bone':('Tulang Trapezoid','Os trapezoideum'),'Triquetrum_bone':('Tulang Triketrum','Os triquetrum'),
 'Sacrum':('Tulang Sakrum','Os sacrum'),'Coccyx':('Tulang Ekor','Os coccygis'),'Atlas_(C1)':('Atlas (C1)','Atlas'),'Axis_(C2)':('Aksis (C2)','Axis'),'Manubrium_of_sternum':('Manubrium Sterni','Manubrium sterni'),'Body_of_sternum':('Korpus Sterni','Corpus sterni'),'Xiphoid_process':('Prosesus Xifoideus','Processus xiphoideus')}
 R=['Tengkorak & Wajah','Gigi & Tulang Rawan Kepala-Leher','Tulang Belakang','Toraks','Ekstremitas Atas','Ekstremitas Bawah']
+TOOTH_TA2={
+    'medial_incisor':('Seri Tengah','Dens incisivus medialis'),
+    'lateral_incisor':('Seri Samping','Dens incisivus lateralis'),
+    'canine':('Taring','Dens caninus'),
+    'first_premolar':('Geraham Kecil 1','Dens premolaris primus'),
+    'second_premolar':('Geraham Kecil 2','Dens premolaris secundus'),
+    'first_molar':('Geraham 1','Dens molaris primus'),
+    'second_molar':('Geraham 2','Dens molaris secundus'),
+}
 def info(b):
     d=None
     if b in B: i,l=B[b]
@@ -23,8 +37,10 @@ def info(b):
         t={'Proximal':('Proksimal','proximalis'),'Middle':('Tengah','media'),'Distal':('Distal','distalis')}[m[1]];n=ORD[m[2].capitalize()];h=m[3]=='hand'
         i,l=f'Falang {t[0]} Jari {n} {"Tangan" if h else "Kaki"}',f'Phalanx {t[1]} digiti {ROM[n]} {"manus" if h else "pedis"}'
     else:
-        m=re.match(r'^(Upper|Lower)_(\w+?)(_tooth)?$',b);w={'medial_incisor':'Seri Tengah','lateral_incisor':'Seri Samping','canine':'Taring','first_premolar':'Geraham Kecil 1','second_premolar':'Geraham Kecil 2','first_molar':'Geraham 1','second_molar':'Geraham 2'}[m[2]]
-        i,l=f'Gigi {w} {"Atas" if m[1]=="Upper" else "Bawah"}',f'Dens {m[2].replace("_"," ")} {"maxillaris" if m[1]=="Upper" else "mandibularis"}'
+        m=re.match(r'^(Upper|Lower)_(\w+?)(_tooth)?$',b)
+        w,lat=TOOTH_TA2[m[2]]
+        i=f'Gigi {w} {"Atas" if m[1]=="Upper" else "Bawah"}'
+        l=f'{lat} {"superior" if m[1]=="Upper" else "inferior"}'
     if re.match(r'^(Parietal|Frontal|Occipital|Temporal|Sphenoid|Ethmoid)_bone$',b): d='cranium'
     elif b=='Mandible': d='mandibula'
     elif b.startswith('Vertebra_') or b.startswith('Atlas') or b.startswith('Axis'): d='vertebra'

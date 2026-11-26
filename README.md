@@ -44,19 +44,19 @@ Tampilan tubuh utama memakai model Z-Anatomy. Rujukan jantung, saluran kemih, li
 | Sistem | Item | Mesh | Segitiga | Catatan |
 |---|---:|---:|---:|---|
 | Rangka | 159 | 277 | 329 rb | Tulang dan tulang rawan; nama ID/Latin/Inggris; deskripsi lengkap |
-| Otot | 211 | 591 | 266 rb | Nama Indonesia/Latin untuk otot utama |
+| Otot | 212 | 462 | 845 rb | Badan otot 3D penuh dari Z-Anatomy (tanpa tempelan entesis); nama ID/Latin untuk otot utama |
 | Saraf | 120 | 237 | 78 rb | Saraf utama dan bagian medula spinalis |
-| Pernapasan | 48 | 64 | 138 rb | Paru, saluran napas, tulang rawan hidung dan laring kanan-kiri, pleura, dan diafragma |
+| Pernapasan | 48 | 52 | 127 rb | Paru, saluran napas, tulang rawan hidung dan laring kanan-kiri, pleura, dan diafragma |
 | Pencernaan | 40 | 46 | 154 rb | Mulut, kelenjar ludah, saluran cerna, hati, empedu, pankreas, dan omentum |
 | Reproduksi pria | 10 | 15 | 22 rb | Testis hingga penis |
-| Urinari (HRA) | 14 | 79 | 232 rb | Ginjal, sistem pengumpul urin, ureter, kandung kemih, dan uretra |
+| Sistem Urinaria (HRA) | 15 | 81 | 242 rb | Ginjal (termasuk hilus), sistem pengumpul urine, ureter, kandung kemih, dan uretra pria |
 | Endokrin | 10 | 13 | 31 rb | Hipotalamus, hipofisis, pineal, tiroid, paratiroid, adrenal, timus |
-| Jantung dan pembuluh besar (HRA) | 45 | 51 | 318 rb | Empat ruang, empat katup, septum, pembuluh koroner, dan pembuluh besar |
-| Pembuluh darah (6 daerah) | 374 | 630 | 3,5 jt | Arteri dan vena per daerah |
+| Jantung dan pembuluh besar (HRA) | 46 | 51 | 317 rb | Empat ruang, empat katup, septum, pembuluh koroner (termasuk LCx), dan pembuluh besar |
+| Pembuluh darah (6 daerah) | 369 | 629 | 3,5 jt | Arteri dan vena per daerah |
 | Organ limfatik (HRA) | 2 | 7 | 20 rb | Limpa dan timus |
-| Nodus limfatikus (HRA) | 7 | 13 | 255 rb | Bagian-bagian satu nodus |
-| Usus halus (HRA) | 4 | 7 | 32 rb | Duodenum, jejunum, ileum, dan ileum terminal |
-| Usus besar (HRA) | 10 | 10 | 34 rb | Sekum, katup ileosekal, apendiks, kolon, dan rektum |
+| Nodus limfatikus (HRA) | 7 | 13 | 254 rb | Bagian-bagian satu nodus |
+| Usus halus (HRA) | 7 | 10 | 34 rb | Ampula duodeni, duodenum, sfingter Oddi, papila minor, jejunum, ileum, dan ileum terminal |
+| Usus besar (HRA) | 10 | 10 | 34 rb | Sekum, katup ileosekal, apendiks, kolon, fleksura koli, dan rektum |
 
 Tingkat penjelasan:
 
@@ -83,7 +83,7 @@ python3 -m http.server 8000
 3. Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 4. Situs tersedia di `https://<username>.github.io/<repo>/`.
 
-Total data sekitar 60 MB; file terbesar sekitar 16 MB, di bawah batas 100 MB per file GitHub. Perlu diingat bahwa git menyimpan riwayat tiap perubahan file data.
+Total data sekitar 70,5 MiB (73,9 MB); file terbesar sekitar 15,5 MiB (`atlas_vsKa.json`), di bawah batas 100 MB per file GitHub. Perlu diingat bahwa git menyimpan riwayat tiap perubahan file data.
 
 ## Struktur repositori
 
@@ -93,6 +93,7 @@ Total data sekitar 60 MB; file terbesar sekitar 16 MB, di bawah batas 100 MB per
 ├── LICENSE             # Lisensi kode (MIT)
 ├── README.md           # README bahasa Indonesia
 ├── README.en.md        # README bahasa Inggris
+├── ANATOMY-REVIEW.md   # Audit anatomi awal & tindak lanjut
 ├── data/
 │   ├── LICENSE             # Teks lengkap CC BY-SA 4.0 (data dan teks)
 │   ├── NOTICE.md           # Asal data, perubahan, dan atribusi
@@ -102,20 +103,23 @@ Total data sekitar 60 MB; file terbesar sekitar 16 MB, di bawah batas 100 MB per
 │   ├── atlas_organ.json    # pernapasan
 │   ├── atlas_cerna.json    # pencernaan
 │   ├── atlas_repro.json    # reproduksi pria
-│   ├── atlas_urin.json     # urinari
+│   ├── atlas_urin.json     # sistem urinaria (HRA)
 │   ├── atlas_endo.json     # endokrin
-│   ├── atlas_jantung.json  # jantung dan pembuluh besar
+│   ├── atlas_jantung.json  # jantung dan pembuluh besar (HRA)
 │   ├── atlas_vsKa.json     # pembuluh: kepala-leher (arteri)
 │   ├── atlas_vsKv.json     # pembuluh: kepala-leher (vena)
 │   ├── atlas_vsTo.json     # pembuluh: toraks
 │   ├── atlas_vsAb.json     # pembuluh: abdomen dan pelvis
 │   ├── atlas_vsLe.json     # pembuluh: lengan dan tangan
 │   ├── atlas_vsTu.json     # pembuluh: tungkai dan kaki
-│   ├── atlas_limfa.json    # limpa dan timus HRA
-│   ├── atlas_limfonodus.json # nodus limfatikus HRA
-│   ├── atlas_ususHalus.json  # usus halus HRA
-│   └── atlas_ususBesar.json  # usus besar HRA
-└── tools/              # Skrip Python pengolah model (referensi)
+│   ├── atlas_limfa.json    # limpa dan timus (HRA)
+│   ├── atlas_limfonodus.json # nodus limfatikus (HRA)
+│   ├── atlas_ususHalus.json  # usus halus (HRA)
+│   └── atlas_ususBesar.json  # usus besar (HRA)
+├── docs/
+│   ├── GEOMETRY-VALIDATION.md  # Laporan validasi geometri 3-tingkat
+│   └── research/               # Riset sumber primer (glTF/WebGL, WCAG, TA2/EYD V)
+└── tools/              # Skrip Python pengolah dan validasi model offline
 ```
 
 Nama file data mengikuti kunci layer di `index.html` (`atlas_<kunci>.json`).
@@ -160,14 +164,14 @@ Urutan pengerjaan, dari awal sampai sekarang:
 2. **Seleksi** — memilih rentang objek untuk tiap sistem. Contoh: tulang dari indeks awal, organ dari rentang viscera, pembuluh dari rentang arteri dan vena.
 3. **Pembuangan duplikat** — banyak saluran (ureter, uretra, sebagian bronkus dan duktus, hampir semua pembuluh) tersimpan sebagai dua objek identik di sumbernya. Objek dengan bentuk identik dibuang.
 4. **Penyederhanaan** — pada rangka, otot, saraf, pernapasan, dan pencernaan, mesh disederhanakan dengan *vertex clustering* (penggabungan titik pada grid) dengan target jumlah segitiga per objek. Mesh lainnya mempertahankan segitiga sumber. Mesh yang melebihi batas indeks 16-bit dipecah pada batas segitiga.
-5. **Kuantisasi dan pengemasan** — posisi vertex dikuantisasi ke 16-bit dalam kotak batas layer, indeks segitiga 16-bit, lalu seluruhnya di-base64 dan ditulis sebagai JSON.
-6. **Pengelompokan dan penamaan** — struktur dikelompokkan per sisi, jenis, atau daerah; nama Indonesia dan Latin ditulis untuk struktur utama.
+5. **Kuantisasi dan pengemasan (`ha-mesh-v2`)** — setiap struktur dikemas dengan kuantisasi `uint16` anisotropik per-mesh (serta promosi otomatis ke `float32` IEEE-754 untuk mesh tipis/halus agar tidak menimbulkan segitiga berluas nol, distorsi normal >1,0°, atau pergeseran >5,0 µm), indeks segitiga 16-bit (`<= 65.535` vertex per chunk agar tidak memakai indeks *primitive restart* WebGL 2.0 `65535`), diikat hash generasi `gen`, lalu di-base64 dan ditulis sebagai JSON.
+6. **Pengelompokan dan penamaan** — struktur dikelompokkan per sisi, jenis, atau daerah; nama Indonesia (mengacu EYD V / KBBI VI) dan Latin (*Terminologia Anatomica* edisi ke-2 / TA2) ditulis untuk struktur utama.
 7. **Penulisan konten** — deskripsi, fungsi, persarafan, suplai darah, struktur terkait, dan korelasi klinis ditulis per struktur atau per kelompok.
 
 ### Keputusan desain
 
 - **Satu file HTML tanpa build step** supaya mudah di-host dan dipahami.
-- **Data terpisah per sistem** agar halaman awal kecil (sekitar 350 KB) dan model baru diunduh hanya saat dibutuhkan.
+- **Data terpisah per sistem** agar halaman awal tetap ringkas (sekitar 400 KB) dan model baru diunduh hanya saat dibutuhkan.
 - **Struktur yang menempel pada permukaan struktur lain** (segmen hati, taenia kolon) disembunyikan sampai dipilih supaya tidak berkedip karena permukaan yang berimpit.
 - **Selaput tipis** (pleura, mukosa, omentum, mesokolon) ditampilkan transparan dan dikecualikan dari klik di model supaya tidak menghalangi struktur di belakangnya.
 - **Pengelompokan daerah pembuluh** mengikuti lokasi anatomi untuk struktur bernama dan memakai posisi untuk mesh lainnya.
@@ -197,7 +201,7 @@ Setiap `data/atlas_<kunci>.json` memakai format biner *little-endian* berversi `
 - Daftar nama, kelompok, dan teks deskripsi ada di `index.html`:
   - `BL[kunci].g` — kelompok dan item sidebar (`id`, `n` nama utama, `l` Latin, `e` Inggris, `r` daerah, `s` sisi, `p` indeks mesh, `d` kunci deskripsi, `g` bila penjelasan bersifat umum).
   - `DET[kunci]` — teks (`desc`, `fn`, `nerve`, `blood`, `rel`, `clin`).
-  - `AID` — peta kunci layer (versi hosting platform); pada repositori ini jalur data dibentuk dari `data/atlas_<kunci>.json`.
+  - Jalur berkas geometri dibentuk langsung dari kunci layer (`data/atlas_<kunci>.json`).
 
 ## Menambah sistem atau struktur baru
 
@@ -218,23 +222,25 @@ Ikuti [petunjuk impor HuBMAP](data/NOTICE.md#hubmap-reference-models) untuk memb
 
 - **Model tubuh pria**: organ reproduksi wanita tidak ada.
 - **Cakupan yang belum tersedia** meliputi kanalis analis, korda tendinea, nodus SA dan AV, perikardium, alveolus, laring bagian dalam, serta sebaran nodus dan pembuluh limfe seluruh tubuh. Tampilan reproduksi pria memakai model testis dan duktus yang disederhanakan.
-- **Penjelasan umum** untuk sebagian besar pembuluh darah, otot dan saraf di luar struktur utama. Sebagian nama mengikuti label bahasa Inggris dari sumber.
-- **Pengelompokan otomatis**: banyak pembuluh, otot, dan saraf dikelompokkan menurut nama dan posisi. Struktur di perbatasan dapat muncul di kelompok yang berdekatan.
-- **Kualitas model**: rangka, otot, saraf, pernapasan, dan pencernaan telah disederhanakan; detail halus berkurang dibanding model aslinya.
-- **Verifikasi konten**: teks anatomi disusun dengan bantuan AI dan belum ditinjau oleh pakar anatomi atau klinisi. Periksa dengan sumber rujukan sebelum dipakai untuk pengajaran resmi.
-- **Performa**: layer pembuluh kepala-leher (arteri) berukuran sekitar 16 MB dan sekitar 1,3 juta segitiga; pada perangkat lawas bisa terasa berat. Label hover dimatikan otomatis pada layer yang sangat padat.
+- **Asimetri model sumber Z-Anatomy**: audit langsung pada berkas sumber `Z-Anatomy/Startup.blend` mengonfirmasi bahwa `Vagus_nerve_(X).l` hanya dimodelkan hingga setinggi T4/arkus aorta (berbeda dari `Vagus_nerve_(X).r` yang turun hingga abdomen), serta pembuluh frenikus (`Superior_phrenic_arteries.r`, `Right_superior_phrenic_vein`, `Inferior_phrenic_artery.r`) hanya tersedia di sisi kanan pada sumber hulu. Otot `Articularis_genus` tidak memiliki mesh badan otot pada sumber Z-Anatomy (hanya bercak origo).
+- **Penjelasan umum** untuk sebagian besar cabang pembuluh darah, otot, dan saraf di luar struktur utama. Sebagian nama mengikuti label bahasa Inggris dari sumber.
+- **Kualitas model**: rangka, otot (QEM ringan hanya pada lembaran padat >2.200 segitiga melalui [`tools/rebuild_z_anatomy.py`](tools/rebuild_z_anatomy.py)), saraf, pernapasan, dan pencernaan telah disederhanakan; detail mikroskopis berkurang dibanding model mentahnya.
+- **Verifikasi konten**: teks anatomi telah ditinjau terhadap sumber rujukan (StatPearls/NCBI Bookshelf, FIPAT *Terminologia Anatomica* TA2, EYD V / KBBI VI), namun belum melalui tinjauan sejawat pakar anatomi/klinisi resmi. Periksa dengan buku teks sebelum dipakai untuk pengajaran formal.
+- **Performa**: layer pembuluh kepala-leher (arteri) berukuran sekitar 15,5 MiB dan sekitar 1,34 juta segitiga; pada perangkat lawas bisa terasa berat.
 
 ## Kredit
 
-- **[Z-Anatomy](https://github.com/Z-Anatomy)** — sumber model 3D (seluruh atlas dalam format Blender/OBJ), dilisensikan [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Repositori yang relevan: *Models-of-human-anatomy* dan *The-blend*.
-- **BodyParts3D** — © The Database Center for Life Science (DBCLS), Jepang. Basis data model 3D yang menjadi dasar Z-Anatomy. Halaman unduhan resmi: <https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>.
+- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)** — sumber 6 layer rujukan (jantung, sistem urinaria, limpa & timus, nodus limfatikus, usus halus, usus besar), dilisensikan [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Penulis dan pengembang model sumber: **Kristen Browne**, **Heidi Schlehlein**, serta **Arie Kaufman (Stony Brook University)** untuk usus besar. Daftar DOI dan commit sumber tercantum di [`data/NOTICE.md`](data/NOTICE.md).
+- **[Z-Anatomy](https://github.com/Z-Anatomy/Models-of-human-anatomy)** — sumber model 3D tubuh utama (format Blender/OBJ), dilisensikan [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **BodyParts3D** — © The Database Center for Life Science (DBCLS), Jepang. Basis data model 3D yang menjadi dasar Z-Anatomy (<https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>).
 - **[three.js](https://threejs.org/)** — pustaka rendering 3D (lisensi MIT), termasuk `OrbitControls`.
-- **Terminologia Anatomica** — standar internasional penamaan struktur anatomi yang menjadi rujukan penamaan Latin.
-- **Claude (Anthropic)** — asisten AI yang membantu perancangan, pengodean, skrip pengolah data, dan penulisan teks anatomi dalam proyek ini.
+- **[FIPAT *Terminologia Anatomica* (TA2)](https://fipat.library.dal.ca/ta2/)** — standar internasional penamaan struktur anatomi yang menjadi rujukan penamaan Latin dan Inggris.
+- **EYD Edisi V & KBBI VI (Badan Bahasa Kemendikdasmen RI)** — acuan pembakuan ejaan dan serapan istilah medis bahasa Indonesia.
+- **Asisten AI (Claude, Anthropic & Antigravity)** — membantu perancangan, pengodean, skrip validasi/pengolah data, serta penulisan dan penyuntingan teks anatomi.
 
 Teks atribusi yang disarankan untuk dicantumkan di situs atau slide:
 
-> Model 3D: BodyParts3D © The Database Center for Life Science, melalui Z-Anatomy (CC BY-SA 4.0), telah diolah dan disederhanakan untuk web.
+> Model 3D: BodyParts3D © The Database Center for Life Science, melalui Z-Anatomy (CC BY-SA 4.0), dan HuBMAP Human Reference Atlas (CC BY 4.0 — Kristen Browne, Heidi Schlehlein, Arie Kaufman / Stony Brook University), dikemas untuk web.
 
 ## Lisensi
 
@@ -267,7 +273,10 @@ Artinya untuk proyek ini:
 
 Hal yang perlu diperhatikan:
 
-1. **Lisensi per bagian di sumber.** Untuk BodyParts3D, atribusi yang diminta pada versi 4.0 berbunyi: *"BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International"*; versi lama memakai CC BY-SA 2.1 Japan. Z-Anatomy menyatakan CC BY-SA 4.0 (lihat ketentuan di atas). Namun saya sempat menemukan laporan bahwa **sebagian struktur berlisensi non-komersial** (misalnya ginjal dan telinga dalam); ini belum saya verifikasi sendiri dan tidak disebut dalam kutipan README di atas. Ginjal dipakai pada sistem urinari proyek ini. Sebelum penggunaan komersial, cek lisensi per model di repositori Z-Anatomy.
+1. **Lisensi per bagian di sumber (terverifikasi dari `Z-Anatomy/License.txt`).** Untuk BodyParts3D, versi 4.0 berlisensi CC BY 4.0 dan versi lama yang dirujuk Z-Anatomy berlisensi CC BY-SA 2.1 Japan. Z-Anatomy secara keseluruhan berlisensi CC BY-SA 4.0, tetapi mencantumkan beberapa model hulu dengan lisensi terpisah:
+   - *Kidney* (Lissie Cowley, CC-BY-NC 4.0): **tidak lagi digunakan** di proyek ini karena Sistem Urinaria telah beralih ke model **HuBMAP (CC BY 4.0)**.
+   - *Anatomy of the Inner Ear* (University of Dundee School of Medicine, **CC-BY-NC-SA 4.0**): berlisensi non-komersial. Audit tulang pendengaran (`Malleus`, `Incus`, `Stapes`) dan saraf koklear/vestibular sebelum penggunaan komersial.
+   - *Cranial Nerves and Foramina* (University of Dundee, CAHID): CC-BY 4.0.
 2. **Lengkapi berkas lisensi.** Pastikan `LICENSE` (MIT) sudah berisi tahun dan nama pemegang hak cipta yang benar, dan `data/LICENSE` berisi teks lengkap CC BY-SA 4.0 yang disalin dari situs Creative Commons.
 3. **Pertahankan atribusi** di situs (misalnya pada footer atau panel info) dan di README.
 

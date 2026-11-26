@@ -2,6 +2,8 @@ import numpy as np, pickle, cls, re
 CART={'Lateral_process_of_nasal_septal_cartilage','Nasal_septal_cartilage','Thyroid_cartilage','Cricoid_cartilage','Arytenoid_cartilage','Corniculate_cartilage','Major_alar_cartilage'}
 want=set(range(4460,4517))|set(range(4560,4566))|{4567,4568,4569,4570,4571}
 want|={i for i,n in enumerate(cls.names) if cls.split(n)[0] in CART}
+# Exclude coplanar Diaphragm.o* origin stickers (causes severe z-fighting over the Diaphragm dome)
+want={i for i in want if not re.match(r'^Diaphragm\.o', cls.names[i])}
 last=max(want)
 print(len(want),flush=True)
 out=[];idx=-1;vc=0;cur=None

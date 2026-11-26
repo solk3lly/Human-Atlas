@@ -46,19 +46,19 @@ The main body views use Z-Anatomy models. The heart, urinary, lymphatic, and bow
 | System | Items | Meshes | Triangles | Notes |
 |---|---:|---:|---:|---|
 | Skeleton | 159 | 277 | 329 k | Bones and cartilage; ID/Latin/English names; full descriptions |
-| Muscles | 211 | 591 | 266 k | Indonesian/Latin names for the main muscles |
+| Muscles | 212 | 462 | 845 k | Full 3D muscle bellies from Z-Anatomy (no enthesis stickers); Indonesian/Latin names for main muscles |
 | Nerves | 120 | 237 | 78 k | Major nerves and portions of the spinal cord |
-| Respiratory | 48 | 64 | 138 k | Lungs, airways, bilateral nasal and laryngeal cartilage, pleura and diaphragm |
+| Respiratory | 48 | 52 | 127 k | Lungs, airways, bilateral nasal and laryngeal cartilage, pleura and diaphragm |
 | Digestive | 40 | 46 | 154 k | Mouth, salivary glands, GI tract, liver, biliary system, pancreas and omenta |
 | Male reproductive | 10 | 15 | 22 k | Testis to penis |
-| Urinary (HRA) | 14 | 79 | 232 k | Kidneys, collecting system, ureters, bladder and urethra |
+| Urinary (HRA) | 15 | 81 | 242 k | Kidneys (incl. renal hila), collecting system, ureters, bladder and male urethra |
 | Endocrine | 10 | 13 | 31 k | Hypothalamus, pituitary, pineal, thyroid, parathyroids, adrenals, thymus |
-| Heart and great vessels (HRA) | 45 | 51 | 318 k | Four chambers, four valves, septum, coronary and great vessels |
-| Blood vessels (6 regions) | 374 | 630 | 3.5 M | Regional arteries and veins |
+| Heart and great vessels (HRA) | 46 | 51 | 317 k | Four chambers, four valves, septum, coronary vessels (incl. LCx) and great vessels |
+| Blood vessels (6 regions) | 369 | 629 | 3.5 M | Regional arteries and veins |
 | Lymphatic organs (HRA) | 2 | 7 | 20 k | Spleen and thymus |
-| Lymph node (HRA) | 7 | 13 | 255 k | Parts of one lymph node |
-| Small intestine (HRA) | 4 | 7 | 32 k | Duodenum, jejunum, ileum and terminal ileum |
-| Large intestine (HRA) | 10 | 10 | 34 k | Cecum, ileocecal valve, appendix, colon and rectum |
+| Lymph node (HRA) | 7 | 13 | 254 k | Parts of one lymph node |
+| Small intestine (HRA) | 7 | 10 | 34 k | Duodenal ampulla, duodenum, sphincter of Oddi, minor papilla, jejunum, ileum and terminal ileum |
+| Large intestine (HRA) | 10 | 10 | 34 k | Cecum, ileocecal valve, appendix, colon, colic flexures and rectum |
 
 Level of explanation:
 
@@ -85,7 +85,7 @@ python3 -m http.server 8000
 3. Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 4. The site is available at `https://<username>.github.io/<repo>/`.
 
-Total data is about 60 MB; the largest file is about 16 MB, below GitHub's 100 MB per-file limit. Keep in mind that git stores the history of every change to the data files.
+Total data is about 70.5 MiB (73.9 MB); the largest file is about 15.5 MiB (`atlas_vsKa.json`), below GitHub's 100 MB per-file limit. Keep in mind that git stores the history of every change to the data files.
 
 ## Repository structure
 
@@ -95,6 +95,7 @@ Total data is about 60 MB; the largest file is about 16 MB, below GitHub's 100 M
 ├── LICENSE             # Code license (MIT)
 ├── README.md           # Indonesian README
 ├── README.en.md        # English README
+├── ANATOMY-REVIEW.md   # Initial anatomy audit & follow-up notes
 ├── data/
 │   ├── LICENSE             # Full CC BY-SA 4.0 text (data and text)
 │   ├── NOTICE.md           # Data origin, changes, and attribution
@@ -104,9 +105,9 @@ Total data is about 60 MB; the largest file is about 16 MB, below GitHub's 100 M
 │   ├── atlas_organ.json    # respiratory
 │   ├── atlas_cerna.json    # digestive
 │   ├── atlas_repro.json    # male reproductive
-│   ├── atlas_urin.json     # urinary
+│   ├── atlas_urin.json     # urinary (HRA)
 │   ├── atlas_endo.json     # endocrine
-│   ├── atlas_jantung.json  # heart and great vessels
+│   ├── atlas_jantung.json  # heart and great vessels (HRA)
 │   ├── atlas_vsKa.json     # vessels: head-neck (arteries)
 │   ├── atlas_vsKv.json     # vessels: head-neck (veins)
 │   ├── atlas_vsTo.json     # vessels: thorax
@@ -117,7 +118,10 @@ Total data is about 60 MB; the largest file is about 16 MB, below GitHub's 100 M
 │   ├── atlas_limfonodus.json # HRA lymph node
 │   ├── atlas_ususHalus.json  # HRA small intestine
 │   └── atlas_ususBesar.json  # HRA large intestine
-└── tools/              # Python scripts that process the models (reference)
+├── docs/
+│   ├── GEOMETRY-VALIDATION.md  # Three-tier geometry validation report
+│   └── research/               # Primary-source specs (glTF/WebGL, WCAG, TA2/EYD V)
+└── tools/              # Offline Python model-processing and validation scripts
 ```
 
 Data file names follow the layer keys in `index.html` (`atlas_<key>.json`).
@@ -162,14 +166,14 @@ The order of work, from the beginning to now:
 2. **Selection**: choose object ranges for each system. For example, bones from the start indices, organs from the viscera range, vessels from the artery and vein range.
 3. **Duplicate removal**: many tubular structures (ureters, urethra, some bronchi and ducts, almost all vessels) are stored as two identical objects in the source. Objects with identical geometry are dropped.
 4. **Simplification**: for the skeleton, muscles, nerves, respiratory, and digestive systems, meshes are simplified with *vertex clustering* (merging vertices on a grid) with a per-object triangle target. The other packed meshes preserve source triangles. Meshes that exceed the 16-bit index limit are split at triangle boundaries.
-5. **Quantization and packing**: vertex positions are quantized to 16 bits inside the layer's bounding box, triangle indices are 16-bit, and everything is base64-encoded and written as JSON.
-6. **Grouping and naming**: structures are grouped by side, type, or region; Indonesian and Latin names are written for the main structures.
+5. **Quantization and packing (`ha-mesh-v2`)**: each structure is packed with per-mesh anisotropic `uint16` quantization (with automatic promotion to IEEE-754 `float32` on thin/sliver meshes whenever quantization would introduce any new zero-area triangle, >1.0° p99 normal tilt, or >5.0 µm vertex drift), 16-bit triangle indices (`<= 65,535` vertices per chunk to avoid WebGL 2.0 primitive-restart index `65535`), bound via a `gen` digest, then base64-encoded into JSON.
+6. **Grouping and naming**: structures are grouped by side, type, or region; Indonesian (EYD V / KBBI VI) and Latin (*Terminologia Anatomica*, 2nd ed. / TA2) names are written for main structures.
 7. **Writing content**: description, function, innervation, blood supply, related structures, and clinical correlations are written per structure or per group.
 
 ### Design decisions
 
 - **A single HTML file with no build step** so it is easy to host and understand.
-- **Separate data per system** so the initial page is small (about 350 KB) and a model is downloaded only when needed.
+- **Separate data per system** so the initial page stays compact (about 400 KB) and a model is downloaded only when needed.
 - **Structures lying on the surface of other structures** (liver segments, taeniae coli) are hidden until selected, to avoid flickering from coincident surfaces.
 - **Thin membranes** (pleura, mucosa, omenta, mesocolon) are drawn transparent and excluded from clicking on the model so they do not block structures behind them.
 - **Vessel regions** use anatomical assignments for named structures and position-based grouping for the remaining meshes.
@@ -199,7 +203,7 @@ Each `data/atlas_<key>.json` uses the versioned little-endian `ha-mesh-v2` forma
 - The lists of names, groups, and description text are in `index.html`:
   - `BL[key].g`: sidebar groups and items (`id`, `n` main name, `l` Latin, `e` English, `r` region, `s` side, `p` mesh indices, `d` description key, `g` when the explanation is general).
   - `DET[key]`: text (`desc`, `fn`, `nerve`, `blood`, `rel`, `clin`).
-  - `AID`: map of layer keys (hosting-platform version); in this repository the data path is built from `data/atlas_<key>.json`.
+  - Geometry file paths are derived directly from the layer key (`data/atlas_<key>.json`).
 
 ## Adding a new system or structure
 
@@ -220,23 +224,25 @@ Use [the HuBMAP import instructions](data/NOTICE.md#hubmap-reference-models) to 
 
 - **Male body model**: female reproductive organs are not present.
 - **Coverage gaps** include the anal canal, chordae tendineae, SA and AV nodes, pericardium, alveoli, inner larynx, and whole-body lymphatic vessels and nodes. The original male reproductive view uses a simplified rendition of the testes and ducts.
-- **General explanations** for most blood vessels, muscles and nerves outside the main structures. Some names come from the English source labels.
-- **Automatic grouping**: many vessel, muscle, and nerve entries are assigned regions by name and position. Structures at region borders can appear in a neighbouring group.
-- **Model quality**: the skeleton, muscles, nerves, respiratory, and digestive systems were simplified; fine detail is reduced compared with the original model.
-- **Content verification**: the anatomy text was prepared with AI assistance and has not been reviewed by an anatomy expert or clinician. Check it against references before using it for formal teaching.
-- **Performance**: the head-neck arteries layer is about 16 MB and about 1.3 million triangles; it may feel heavy on older devices. Hover labels are turned off automatically on very dense layers.
+- **Upstream Z-Anatomy source asymmetries**: direct inspection of `Z-Anatomy/Startup.blend` confirms that `Vagus_nerve_(X).l` terminates at T4/aortic arch level upstream (whereas `Vagus_nerve_(X).r` continues into the abdomen), phrenic vessels (`Superior_phrenic_arteries.r`, `Right_superior_phrenic_vein`, `Inferior_phrenic_artery.r`) are modeled on the right side only, and `Articularis_genus` exists only as origin patches without a muscle-belly mesh.
+- **General explanations** for most minor blood vessels, muscles, and nerves outside the main structures. Some names come from English source labels.
+- **Model quality**: the skeleton, muscles (gentle QEM only on dense sheets >2,200 triangles via [`tools/rebuild_z_anatomy.py`](tools/rebuild_z_anatomy.py)), nerves, respiratory, and digestive systems were simplified; microscopic detail is reduced compared with the raw source.
+- **Content verification**: anatomy explanations have been verified against primary references (StatPearls/NCBI Bookshelf, FIPAT *Terminologia Anatomica* TA2, EYD V / KBBI VI), but have not yet undergone formal peer review by an anatomist or clinician. Verify against textbooks before formal teaching.
+- **Performance**: the head-neck arteries layer is about 15.5 MiB and 1.34 million triangles; it may feel heavy on older devices.
 
 ## Credits
 
-- **[Z-Anatomy](https://github.com/Z-Anatomy)**: source of the 3D models (the whole atlas in Blender/OBJ format), licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Relevant repositories: *Models-of-human-anatomy* and *The-blend*.
-- **BodyParts3D**: © The Database Center for Life Science (DBCLS), Japan. The 3D model database on which Z-Anatomy is based. Official download page: <https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>.
+- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)**: source of the 6 reference layers (heart, urinary, spleen & thymus, lymph node, small intestine, large intestine), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Authors & contributors: **Kristen Browne**, **Heidi Schlehlein**, and **Arie Kaufman (Stony Brook University)** for the large intestine. Full source DOIs and pinned commit are listed in [`data/NOTICE.md`](data/NOTICE.md).
+- **[Z-Anatomy](https://github.com/Z-Anatomy/Models-of-human-anatomy)**: source of the main body 3D models (Blender/OBJ), licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- **BodyParts3D**: © The Database Center for Life Science (DBCLS), Japan. The 3D model database on which Z-Anatomy is based (<https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>).
 - **[three.js](https://threejs.org/)**: 3D rendering library (MIT license), including `OrbitControls`.
-- **Terminologia Anatomica**: the international standard for anatomical terminology, used as the reference for Latin names.
-- **Claude (Anthropic)**: the AI assistant that helped with design, coding, data-processing scripts, and writing the anatomy text for this project.
+- **[FIPAT *Terminologia Anatomica* (TA2)](https://fipat.library.dal.ca/ta2/)**: international anatomical terminology standard used for Latin and English names.
+- **EYD V & KBBI VI (Badan Bahasa, Indonesia)**: orthographic and standard-term references for Indonesian medical copy.
+- **AI assistants (Claude, Anthropic & Antigravity)**: assisted with architecture, coding, model validation/processing scripts, and anatomical text authoring/editing.
 
 Suggested attribution text to show on the site or in slides:
 
-> 3D models: BodyParts3D © The Database Center for Life Science, via Z-Anatomy (CC BY-SA 4.0), processed and simplified for the web.
+> 3D models: BodyParts3D © The Database Center for Life Science, via Z-Anatomy (CC BY-SA 4.0), and HuBMAP Human Reference Atlas (CC BY 4.0 — Kristen Browne, Heidi Schlehlein, Arie Kaufman / Stony Brook University), packed for the web.
 
 ## License
 
@@ -273,7 +279,10 @@ What this means for this project:
 
 Things to keep in mind:
 
-1. **Per-part licenses in the source.** For BodyParts3D, the attribution requested for version 4.0 reads: *"BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International"*; older versions use CC BY-SA 2.1 Japan. Z-Anatomy states CC BY-SA 4.0 (see the terms above). However, I came across a report that **some structures carry a non-commercial license** (for example the kidneys and inner ear); I have not verified this myself and it is not mentioned in the README quote above. The kidneys are used in this project's urinary system. Before any commercial use, check the per-model licenses in the Z-Anatomy repository.
+1. **Per-part upstream licenses (verified from `Z-Anatomy/License.txt`).** BodyParts3D v4.0 uses CC BY 4.0 (earlier releases cited by Z-Anatomy used CC BY-SA 2.1 Japan). Z-Anatomy overall uses CC BY-SA 4.0, with specific upstream component licenses noted in its `License.txt`:
+   - *Kidney* (Lissie Cowley, CC-BY-NC 4.0): **no longer shipped** in this project; the urinary layer now uses **HuBMAP (CC BY 4.0)** models.
+   - *Anatomy of the Inner Ear* (University of Dundee School of Medicine, **CC-BY-NC-SA 4.0**): non-commercial license. Audit auditory ossicles (`Malleus`, `Incus`, `Stapes`) and `Cochlear`/`Vestibular` nerves before any commercial use.
+   - *Cranial Nerves and Foramina* (University of Dundee, CAHID): CC-BY 4.0.
 2. **Complete the license files.** Make sure `LICENSE` (MIT) has the correct year and copyright holder, and `data/LICENSE` contains the full CC BY-SA 4.0 text copied from the Creative Commons site.
 3. **Keep the attribution** on the site (for example in the footer or an info panel) and in the README.
 

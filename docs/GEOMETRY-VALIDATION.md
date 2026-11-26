@@ -15,21 +15,21 @@ See [docs/research/packing-and-geometry-validation.md](research/packing-and-geom
 
 | Layer | Meshes (`u16` / `f32`) | Source Zero-Area | Packed Zero-Area | New Zero-Area | Max Disp (µm) | Max p99 Normal Err (°) | Byte-for-Byte Repro |
 |---|---:|---:|---:|---:|---:|---:|:---:|
-| `jantung` | 51 (48 / 3) | 846 | 846 | **0** | 1.849 | 0.177 | Yes |
-| `urin` | 79 (76 / 3) | 0 | 0 | **0** | 1.990 | 0.365 | Yes |
+| `jantung` | 51 (48 / 3) | 203 | 203 | **0** | 1.849 | 0.177 | Yes |
+| `urin` | 81 (78 / 3) | 0 | 0 | **0** | 1.990 | 0.320 | Yes |
 | `limfa` | 7 (7 / 0) | 0 | 0 | **0** | 1.375 | 0.083 | Yes |
 | `limfonodus` | 13 (13 / 0) | 0 | 0 | **0** | 0.176 | 0.403 | Yes |
-| `ususHalus` | 7 (7 / 0) | 0 | 0 | **0** | 1.907 | 0.037 | Yes |
+| `ususHalus` | 10 (10 / 0) | 0 | 0 | **0** | 1.907 | 0.037 | Yes |
 | `ususBesar` | 10 (10 / 0) | 0 | 0 | **0** | 2.769 | 0.029 | Yes |
 
 ### Key Thin/Problematic Meshes (Before Global `u16` vs After `ha-mesh-v2`)
 
 | Layer / Mesh | Selected Encoding | Faces | Source Zero-Area | Old Global `u16` Zero-Area | New `ha-mesh-v2` Zero-Area | Max Vertex Disp (µm) | p99 Normal Err (°) | Surface Topology |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| `jantung` / `Right_atrium.r` | `f32` | 48,186 | 822 | 2270 | **822** | 0.000 | 0.000 | Open (`b=3`) |
-| `jantung` / `Left_coronary_artery.l` | `f32` | 12,240 | 6 | 8537 | **6** | 0.000 | 0.000 | Open (`b=352`) |
-| `jantung` / `Superior_vena_cava` | `f32` | 11,222 | 18 | 122 | **18** | 0.000 | 0.000 | Open (`b=35`) |
-| `urin` / `Kidney.l` | `u16` | 11,222 | 0 | 6 | **0** | 1.156 | 0.365 | Open (`b=36`) |
+| `jantung` / `Right_atrium.r` | `f32` | 47,299 | 184 | 2270 | **184** | 0.000 | 0.000 | Open (`b=121`) |
+| `jantung` / `Left_coronary_artery.l` | `f32` | 12,233 | 6 | 8537 | **6** | 0.000 | 0.000 | Open (`b=369`) |
+| `jantung` / `Superior_vena_cava` | `f32` | 11,212 | 13 | 122 | **13** | 0.000 | 0.000 | Open (`b=40`) |
+| `urin` / `Kidney.l` | `u16` | 11,221 | 0 | 6 | **0** | 1.156 | 0.320 | Open (`b=38`) |
 | `urin` / `Urinary_bladder` | `u16` | 112 | 0 | 2 | **0** | 0.136 | 0.006 | Open (`b=114`) |
 | `urin` / `Urinary_bladder` | `u16` | 4,498 | 0 | 2 | **0** | 0.730 | 0.017 | Open (`b=248`) |
 | `urin` / `Urinary_bladder` | `f32` | 4,888 | 0 | 2 | **0** | 0.000 | 0.000 | Open (`b=338`) |
@@ -47,6 +47,8 @@ Normative coronary diameters for context: LMCA `4.5 ± 0.5 mm`, proximal LAD `3.
 | `Ascending_aorta` ↔ `Left_coronary_artery.l` | 2.103 | 2.103 | 0.009 |
 | `Ascending_aorta` ↔ `Right_coronary_artery.r` | 2.629 | 2.629 | 0.147 |
 | `Left_coronary_artery.l` ↔ `Anterior_interventricular_artery` | 0.000 | 0.000 | 0.288 |
+| `Left_coronary_artery.l` ↔ `Circumflex_artery_of_heart.l` | 0.000 | 0.000 | 0.092 |
+| `Circumflex_artery_of_heart.l` ↔ `Left_marginal_artery.l` | 0.061 | 0.061 | 0.151 |
 | `Anterior_interventricular_artery` ↔ `Diagonal_branches_of_lad_artery` | 0.000 | 0.000 | 0.231 |
 | `Right_coronary_artery.r` ↔ `Posterior_interventricular_artery` | 0.000 | 0.000 | 0.136 |
 | `Right_coronary_artery.r` ↔ `Right_marginal_artery.r` | 0.044 | 0.043 | 0.490 |
@@ -99,26 +101,28 @@ Cross-sections are cut perpendicular to the local 3D centerline tangent (Antiga 
 |---|---|---:|---|---:|---:|---:|---:|
 | `cerna` | Z-Anatomy / BP3D | 1.67 | `80e2446f06881e93` | 46 (46 / 0) | 153,853 | 0 | 11900 |
 | `endo` | Z-Anatomy / BP3D | 0.36 | `04345bd3705e7e06` | 13 (13 / 0) | 31,206 | 0 | 4595 |
-| `jantung` | HuBMAP HRA | 3.92 | `4b4d48fc40cefe2b` | 51 (48 / 3) | 317,624 | 846 | 24067 |
+| `jantung` | HuBMAP HRA | 3.92 | `c9b4ec9a9e8b656d` | 51 (48 / 3) | 316,720 | 203 | 24065 |
 | `limfa` | HuBMAP HRA | 0.23 | `9662fe330e1765cd` | 7 (7 / 0) | 19,602 | 0 | 3257 |
-| `limfonodus` | HuBMAP HRA | 4.04 | `221de276bd88b9e9` | 13 (13 / 0) | 254,663 | 0 | 44193 |
-| `organ` | Z-Anatomy / BP3D | 1.51 | `95d5b310e4aeb4be` | 64 (64 / 0) | 138,223 | 0 | 14061 |
-| `otot` | Z-Anatomy / BP3D | 2.97 | `20beba8b878b4be7` | 591 (591 / 0) | 266,398 | 0 | 2918 |
+| `limfonodus` | HuBMAP HRA | 4.04 | `0b2bb541a361596b` | 13 (13 / 0) | 254,292 | 0 | 44193 |
+| `organ` | Z-Anatomy / BP3D | 1.38 | `a021bb63d2e33d73` | 52 (52 / 0) | 127,221 | 0 | 14061 |
+| `otot` | Z-Anatomy / BP3D | 9.76 | `aa6bee2670e69eec` | 462 (462 / 0) | 844,559 | 0 | 2767 |
 | `rangka` | Z-Anatomy / BP3D | 3.79 | `9cd0ab29413e218c` | 277 (277 / 0) | 329,487 | 8 | 5870 |
 | `repro` | Z-Anatomy / BP3D | 0.26 | `e79727b021fa82e4` | 15 (15 / 0) | 22,403 | 0 | 2459 |
-| `saraf` | Z-Anatomy / BP3D | 1.04 | `229847d1c7430fd5` | 237 (237 / 0) | 77,579 | 0 | 2845 |
-| `urin` | HuBMAP HRA | 2.74 | `1455036c885e3552` | 79 (76 / 3) | 231,527 | 0 | 13544 |
+| `saraf` | Z-Anatomy / BP3D | 1.04 | `01869cd240c3f8b5` | 237 (237 / 0) | 77,579 | 0 | 2845 |
+| `urin` | HuBMAP HRA | 2.86 | `88c70c2601802cbb` | 81 (78 / 3) | 241,842 | 0 | 13544 |
 | `ususBesar` | HuBMAP HRA | 0.40 | `45073bf4ce490cb9` | 10 (10 / 0) | 34,178 | 0 | 4501 |
-| `ususHalus` | HuBMAP HRA | 0.37 | `7c992600cd9db0f0` | 7 (7 / 0) | 31,798 | 0 | 9906 |
-| `vsAb` | Z-Anatomy / BP3D | 5.89 | `a1cd6e247281d476` | 109 (109 / 0) | 510,336 | 2 | 14447 |
-| `vsKa` | Z-Anatomy / BP3D | 15.48 | `f87733fd7a2fcf8d` | 162 (162 / 0) | 1,345,642 | 98 | 50529 |
-| `vsKv` | Z-Anatomy / BP3D | 2.28 | `7ef0c3e8d36d675b` | 58 (58 / 0) | 197,760 | 0 | 28385 |
-| `vsLe` | Z-Anatomy / BP3D | 4.20 | `3010192f264d918e` | 79 (79 / 0) | 364,608 | 0 | 15671 |
-| `vsTo` | Z-Anatomy / BP3D | 6.80 | `02ce2b4e9bea97c1` | 104 (104 / 0) | 590,112 | 0 | 31523 |
-| `vsTu` | Z-Anatomy / BP3D | 6.19 | `405f1fd8ffacd861` | 118 (118 / 0) | 536,256 | 0 | 12791 |
-| **Total (19 layers)** | — | **64.14** | — | **2,040** | **5,453,255** | **954** | ≤ 65,534 |
+| `ususHalus` | HuBMAP HRA | 0.39 | `0c3845fe933a59f9` | 10 (10 / 0) | 33,524 | 0 | 9906 |
+| `vsAb` | Z-Anatomy / BP3D | 6.05 | `73e177694113b26c` | 112 (112 / 0) | 524,160 | 2 | 14447 |
+| `vsKa` | Z-Anatomy / BP3D | 15.46 | `324d5a872372a669` | 162 (162 / 0) | 1,342,172 | 84 | 50529 |
+| `vsKv` | Z-Anatomy / BP3D | 2.31 | `05ff9b9bf76ec562` | 59 (59 / 0) | 199,776 | 0 | 28385 |
+| `vsLe` | Z-Anatomy / BP3D | 4.22 | `2503b46424c1d58c` | 80 (80 / 0) | 366,336 | 0 | 15671 |
+| `vsTo` | Z-Anatomy / BP3D | 6.16 | `b3d5d7e41cd7549e` | 98 (98 / 0) | 534,528 | 0 | 31523 |
+| `vsTu` | Z-Anatomy / BP3D | 6.19 | `a5cbc80b41e611b5` | 118 (118 / 0) | 536,256 | 0 | 12791 |
+| **Total (19 layers)** | — | **70.48** | — | **1,903** | **5,989,694** | **297** | ≤ 65,534 |
 
-### Summary of Precision Recovery
-- **Total zero-area triangles across all 19 layers:** dropped from **11,336 → 954** (-91.6%), of which **846** are pre-existing zero-area faces inside the unquantized HuBMAP `v1.1/VH_M_Heart.glb` source itself (**0** new zero-area triangles introduced by packing across all 167 HRA meshes!).
+### Summary of Precision Recovery & Anatomical Remediation
+- **Total zero-area triangles across all 19 layers:** dropped from **11,336 → 297** (-97.4%), with **203** pre-existing zero-area faces in the unquantized HuBMAP source GLBs and **0** new zero-area triangles introduced by packing across all **172** HRA meshes.
 - **Legacy `vsKa` (`Central_retinal_artery`):** restored from **230 → 98** zero-area faces by recovering the exact un-degraded `bc3f6f9` per-mesh quantization lattices (`4.28 µm` step vs `6.76 µm` regression) with zero extra binary payload.
-- **Disk overhead:** selective `f32` on 6 thin/sliver HRA meshes (`Right_atrium.r`, `Left_coronary_artery.l`, `Superior_vena_cava`, `Urinary_bladder`, `Prostatic_urethra`, `Remaining_urethra`) plus per-mesh `v2` metadata increases total release size from `63.57 MiB` to `64.14 MiB` (+0.57 MiB).
+- **HuBMAP HRA Phase A/B fixes (`tools/import_hra.py`):** split `Circumflex_artery_of_heart` (LCx) from upstream mislabeled `VH_M_diagonal_branch_of_left_anterior_descending_artery` (`FMA:3860`), restored all 5 previously dropped GLB nodes (`Renal_hilum.l/.r` in `urin`; `Duodenal_ampulla`, `Hepatopancreatic_ampulla_sphincter`, `Minor_duodenal_papilla` in `ususHalus`), removed within-mesh repeated triangles, and oriented all closed/nearly-closed shells to positive outward CCW winding.
+- **Z-Anatomy Phase A/B fixes (`tools/repair_bundles.py`, `tools/rebuild_z_anatomy.py`):** stripped 12 coplanar `Diaphragm` origin stickers (`Diaphragm.o*`) from `organ` to eliminate z-fighting; rebuilt `otot` directly from Z-Anatomy `Startup.blend` (`4: Muscular system`) restoring **462** full 3D muscle bellies (replacing 80 enthesis-only bone stickers, resolving all 32 left/right swaps, fixing swapped Trapezius Ascending/Descending parts, and rescuing `Semitendinosus`, `Adductor*`, `Abductor*`, and `Tensor_fasciae_latae`); recovered contralateral `Transverse_sinus.r` (`vsKv`) and `Axillary_vein.l` (`vsLe`); relocated `Subcostal_artery` and `Inferior_phrenic_artery` from `vsTo` to `vsAb` and removed 3 orphaned Z-Anatomy coronary fragments from `vsTo`.
+- **Release footprint:** total across all 19 `ha-mesh-v2` bundles is **70.48 MiB** (selective `f32` on 6 thin/sliver HRA meshes: `Right_atrium.r`, `Left_coronary_artery.l`, `Superior_vena_cava`, `Urinary_bladder`, `Prostatic_urethra`, `Remaining_urethra`).

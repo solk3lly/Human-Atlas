@@ -5,9 +5,7 @@ The main body layers contain 3D model data derived from:
 - **Z-Anatomy**, licensed under CC BY-SA 4.0 (https://github.com/Z-Anatomy)
 - **BodyParts3D**, © The Database Center for Life Science (DBCLS), Japan
 
-The data has been **modified**: objects were selected, exact duplicate meshes
-removed, some meshes simplified, vertex positions quantized, and everything
-packed into a compact binary format encoded as base64 JSON.
+The data has been **modified**: objects were selected, exact duplicate meshes and within-mesh repeated faces removed, closed shells oriented outward, coplanar origin/enthesis bone stickers stripped (`Diaphragm.o*` in `organ`; `otot` rebuilt directly from Z-Anatomy `Startup.blend` collection `4: Muscular system` via `tools/rebuild_z_anatomy.py` with swapped Trapezius Ascending/Descending fixed and bilateral `Transverse_sinus.r` / `Axillary_vein.l` restored), dense meshes gently simplified, vertex positions quantized into `ha-mesh-v2`, and everything packed into a compact binary format encoded as base64 JSON.
 
 ## HuBMAP reference models
 
@@ -24,7 +22,7 @@ The six layers below use the [HuBMAP Human Reference Atlas 3D Reference Object L
 
 To rebuild these layers, get the listed GLBs from the `models/` folder in the pinned [v1.1](https://github.com/hubmapconsortium/ccf-releases/tree/b036a91aaf7234f462b1249d4a5f4fb0e982f412/v1.1/models) or [v1.2](https://github.com/hubmapconsortium/ccf-releases/tree/b036a91aaf7234f462b1249d4a5f4fb0e982f412/v1.2/models) release. Place them in `v11/` and `v12/` subdirectories of a source directory and run `python3 tools/import_hra.py <source-directory>` from the repository (verify source-to-packed geometry with `python3 tools/validate_geometry.py <source-directory>`). The script uses NumPy and atomically updates the six packed data files and their sidebar mappings (`BL[layer].gen`). Normal website use requires only the shipped JSON files.
 
-The original body geometry and the HuBMAP references use different coordinate frames and specimens. The viewer disables the original skeleton overlay for the reference layers. The heart shows complete valve objects and a septum. The lymphatic views show the spleen, thymus, and parts of one lymph node. The bowel views show the ileum, cecum and rectum. The source collections do not provide separately selectable chordae tendineae, a whole-body lymphatic network, or the anal canal in these views. [Initial anatomy audit](../ANATOMY-REVIEW.md) · [Geometry validation report](../docs/GEOMETRY-VALIDATION.md)
+The original body geometry and the HuBMAP references use different coordinate frames and specimens. The viewer disables the original skeleton overlay for the reference layers. The heart shows complete valve objects, a septum, and the Left Circumflex Artery (LCx) split from upstream node `VH_M_diagonal_branch_of_left_anterior_descending_artery` (which HuBMAP's `v2.0/models/asct-b-3d-models-crosswalk.csv` maps to `FMA:3860`, but which geometrically courses posteriorly in the left AV sulcus `0.48 mm` from LMCA and `0.10 mm` from the Left Marginal Artery). The lymphatic views show the spleen, thymus, and parts of one lymph node. The bowel views show the ileum, cecum and rectum. The source collections do not provide separately selectable chordae tendineae, a whole-body lymphatic network, or the anal canal in these views. [Initial anatomy audit](../ANATOMY-REVIEW.md) · [Geometry validation report](../docs/GEOMETRY-VALIDATION.md) · [Terminology & remediation research](../docs/research/anatomy-terminology-and-remediation.md)
 
 The HuBMAP ureter GLBs are double-walled hollow tubes (~0.5 mm wall thickness). Measured perpendicular to the local 3D centreline 20 mm distal to the ureteropelvic junction (UPJ), the left and right ureters measure **3.85 mm / 3.81 mm** outer equivalent diameter ($D_{\text{eq}}$) and **2.83 mm / 2.79 mm** inner lumen $D_{\text{eq}}$ (compared with horizontal axial spans of 4.49 mm / 4.46 mm, which inflate oblique tubes by ~17%). Clinical CT benchmarks depend on protocol: unenhanced CT averages 1.8 ± 0.9 mm with 96% ≤ 3 mm ([Zelenko et al., 2004](https://pubmed.ncbi.nlm.nih.gov/15039184/)), whereas delayed contrast-enhanced CT averages 4.3–4.4 mm with a 95th percentile of 6.9 mm ([Itanyi et al., 2020](https://link.springer.com/article/10.1186/s12301-020-00021-0)). Full station-by-station profiles and packing drift checks are recorded in [docs/GEOMETRY-VALIDATION.md](../docs/GEOMETRY-VALIDATION.md).
 
@@ -44,11 +42,16 @@ functions, relations, clinical correlations) is also offered under CC BY-SA 4.0.
 
 ## Attribution
 
-> 3D models: BodyParts3D © The Database Center for Life Science, via Z-Anatomy
-> (CC BY-SA 4.0), processed and simplified for the web.
+> 3D models: BodyParts3D © The Database Center for Life Science (CC BY-SA 2.1 Japan / v4.0 CC BY 4.0), via Z-Anatomy (CC BY-SA 4.0), and HuBMAP Human Reference Atlas (CC BY 4.0 — Kristen Browne, Heidi Schlehlein, Arie Kaufman / Stony Brook University), processed and packed for the web.
 
-Please also check the Z-Anatomy repository for the attribution wording it
-requests, and for the licenses of individual models.
+### Upstream per-part notices from `Z-Anatomy/License.txt`
+
+- **BodyParts3D** — The Database Center for Life Science — CC-BY-SA 2.1 Japan (v4.0: CC BY 4.0)
+- **Z-Anatomy** — The libre 3D atlas of anatomy — CC-BY-SA 4.0
+- **Cranial Nerves and Foramina** — University of Dundee, CAHID — CC-BY 4.0
+- **Anatomy of the Inner Ear** — University of Dundee School of Medicine — **CC-BY-NC-SA 4.0** *(non-commercial; audit auditory ossicles and cochlear/vestibular nerve meshes before any commercial use)*
+- **Kidney** — Lissie Cowley — CC-BY-NC 4.0 *(no longer shipped in Human Atlas; replaced by HuBMAP CC BY 4.0 urinary models)*
+- **Brainder** & **White matter** — University of Washington
 
 ## Full license text
 

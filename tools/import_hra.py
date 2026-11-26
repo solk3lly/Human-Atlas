@@ -47,8 +47,8 @@ PINNED_SHA256 = {
 }
 
 
-def mesh_item(name, label, latin, detail, *parts):
-    return name, label, latin, detail, parts
+def mesh_item(name, label, latin, detail, *parts, english=None, general=False):
+    return name, label, latin, detail, parts, english, general
 
 
 def compute_generation_hash(layer, meta, sidebar_groups):
@@ -328,6 +328,47 @@ def replace_page_data(page, name, data):
     return page[:start] + formatted + page[start + length:]
 
 
+def _dedupe_repeated_faces(verts, faces):
+    """Remove exact duplicate triangles (same unordered vertex coordinates) within a single mesh."""
+    if len(faces) <= 1:
+        return faces
+    rounded = np.round(verts, 7)
+    _, inv = np.unique(rounded, axis=0, return_inverse=True)
+    wf = np.sort(inv[faces], axis=1)
+    _, first_idx = np.unique(wf, axis=0, return_index=True)
+    if len(first_idx) == len(faces):
+        return faces
+    return faces[np.sort(first_idx)]
+
+
+def _orient_closed_shell_outward(verts, faces):
+    """Ensure strictly closed watertight manifold shells (boundary == 0, nonmanifold == 0) have outward CCW winding.
+
+    Open shells (tubes, cups, cones with boundary edges) have origin-dependent signed volume and must
+    retain their source normals intact rather than being flipped by a world-origin volume sign test.
+    """
+    _, inv = np.unique(np.round(verts, 7), axis=0, return_inverse=True)
+    wf = inv[faces]
+    edges = np.vstack([
+        np.sort(wf[:, [0, 1]], axis=1),
+        np.sort(wf[:, [1, 2]], axis=1),
+        np.sort(wf[:, [2, 0]], axis=1),
+    ])
+    edges = edges[edges[:, 0] != edges[:, 1]]
+    if not len(edges):
+        return faces
+    n = int(inv.max()) + 2
+    packed = edges[:, 0].astype(np.int64) * n + edges[:, 1].astype(np.int64)
+    _, counts = np.unique(packed, return_counts=True)
+    if np.all(counts == 2):
+        vc = verts - verts.mean(axis=0)
+        v0, v1, v2 = vc[faces[:, 0]], vc[faces[:, 1]], vc[faces[:, 2]]
+        signed_vol = float(np.einsum('ij,ij->i', v0, np.cross(v1, v2)).sum() / 6.0)
+        if signed_vol < 0.0:
+            return faces[:, [0, 2, 1]]
+    return faces
+
+
 def build_layer(layer_key, model_files, groups, source_dir, verify_checksums=True):
     models = {}
     for key, (release, file) in model_files.items():
@@ -339,7 +380,10 @@ def build_layer(layer_key, model_files, groups, source_dir, verify_checksums=Tru
     seam_counter = 0
     for group, definitions in groups:
         entries = []
-        for name, label, latin, detail, parts in definitions:
+        for defn in definitions:
+            name, label, latin, detail, parts = defn[:5]
+            english = defn[5] if len(defn) > 5 and defn[5] else name.replace('_', ' ')
+            general = bool(defn[6]) if len(defn) > 6 else False
             slots, sides = [], set()
             for model, pattern, side in parts:
                 matching = [node for node in models[model] if re.fullmatch(pattern, node)]
@@ -350,23 +394,35 @@ def build_layer(layer_key, model_files, groups, source_dir, verify_checksums=Tru
                 mesh_name = f'{name}.{side}' if side else name
                 for node in matching:
                     for vertices, faces in models[model].pop(node):
+                        v64 = np.asarray(vertices, dtype=np.float64)
+                        f64 = _dedupe_repeated_faces(v64, np.asarray(faces, dtype=np.int64))
+                        f64 = _orient_closed_shell_outward(v64, f64)
                         seam_id = seam_counter
                         seam_counter += 1
-                        for chunk_v, chunk_f in mesh_chunks(vertices, faces):
+                        for chunk_v, chunk_f in mesh_chunks(v64.astype(np.float32), f64):
                             slots.append(len(meshes))
                             meshes.append((mesh_name, chunk_v, chunk_f, seam_id))
-            item = {'id': name, 'n': label, 'l': latin, 'e': name.replace('_', ' '),
+            item = {'id': name, 'n': label, 'l': latin, 'e': english,
                     'r': group, 's': SIDES[''.join(sorted(sides))], 'p': slots}
             if detail:
                 item['d'] = detail
+            if general:
+                item['g'] = 1
             entries.append(item)
         sidebar.append({'g': group, 'items': entries})
+
+    # Fail loudly if any source GLB mesh node was silently dropped
+    unconsumed = {m: sorted(nodes.keys()) for m, nodes in models.items() if nodes}
+    if unconsumed:
+        raise ValueError(f'{layer_key} has unconsumed source GLB nodes: {unconsumed}')
+
     bundle = pack(meshes, layer=layer_key, sidebar_groups=sidebar)
     return bundle, {'reference': True, 'gen': bundle['gen'], 'g': sidebar}
 
 
-def heart_mesh(name, label, latin, detail, pattern, side=''):
-    return mesh_item(name, label, latin, detail, ('heart', 'VH_M_' + pattern, side))
+def heart_mesh(name, label, latin, detail, pattern, side='', english=None, general=False):
+    return mesh_item(name, label, latin, detail, ('heart', 'VH_M_' + pattern, side),
+                     english=english, general=general)
 
 
 HEART = [
@@ -383,14 +439,19 @@ HEART = [
         heart_mesh('Tricuspid_valve', 'Katup Trikuspid', 'Valva tricuspidalis', 'tricuspid', 'tricuspid_valve'),
         heart_mesh('Aortic_valve', 'Katup Aorta', 'Valva aortae', 'aortic_valve', 'aortic_valve'),
         heart_mesh('Pulmonary_valve', 'Katup Pulmonal', 'Valva trunci pulmonalis', 'pulm_valve', 'pulmonary_valve'),
-        *[heart_mesh(f'Papillary_muscle_{part}', f'Otot Papilaris {label}', '', 'papillary',
-                     f'papillary_muscle_of_heart_{part}', side)
-          for part, label, side in [
-              ('anterior', 'Anterior (Ventrikel Kanan)', 'r'),
-              ('posterior', 'Posterior (Ventrikel Kanan)', 'r'),
-              ('medial', 'Medial (Ventrikel Kanan)', 'r'),
-              ('anterolateral', 'Anterolateral (Ventrikel Kiri)', 'l'),
-              ('posteromedial', 'Posteromedial (Ventrikel Kiri)', 'l'),
+        *[heart_mesh(f'Papillary_muscle_{part}', f'Otot Papilaris {label}', latin, 'papillary',
+                     f'papillary_muscle_of_heart_{part}', side, english=eng, general=True)
+          for part, label, latin, eng, side in [
+              ('anterior', 'Anterior (Ventrikel Kanan)', 'Musculus papillaris anterior ventriculi dextri',
+               'Anterior papillary muscle of right ventricle', 'r'),
+              ('posterior', 'Posterior (Ventrikel Kanan)', 'Musculus papillaris posterior ventriculi dextri',
+               'Posterior papillary muscle of right ventricle', 'r'),
+              ('medial', 'Medial (Ventrikel Kanan)', 'Musculus papillaris septalis ventriculi dextri',
+               'Septal (medial) papillary muscle of right ventricle', 'r'),
+              ('anterolateral', 'Anterolateral (Ventrikel Kiri)', 'Musculus papillaris anterior ventriculi sinistri',
+               'Anterolateral papillary muscle of left ventricle', 'l'),
+              ('posteromedial', 'Posteromedial (Ventrikel Kiri)', 'Musculus papillaris posterior ventriculi sinistri',
+               'Posteromedial papillary muscle of left ventricle', 'l'),
           ]],
     ]),
     ('Pembuluh Koroner', [
@@ -398,36 +459,58 @@ HEART = [
         heart_mesh('Left_coronary_artery', 'Arteri Koroner Kiri', 'Arteria coronaria sinistra', 'lca', 'left_coronary_artery', 'l'),
         heart_mesh('Anterior_interventricular_artery', 'Arteri Interventrikular Anterior (LAD)', 'Ramus interventricularis anterior',
                    'lad', 'left_anterior_descending_artery'),
-        heart_mesh('Posterior_interventricular_artery', 'Arteri Interventrikular Posterior (PDA)', 'Ramus interventricularis posterior',
-                   '', 'right_posterior_descending_artery'),
-        heart_mesh('Right_marginal_artery', 'Arteri Marginal Kanan', 'Ramus marginalis dexter', '', 'right_marginal_artery', 'r'),
-        heart_mesh('Left_marginal_artery', 'Arteri Marginal Kiri', 'Ramus marginalis sinister', '', 'left_marginal_branch', 'l'),
-        heart_mesh('Diagonal_branches_of_lad_artery', 'Cabang Diagonal LAD', '', '',
-                   'diagonal_branch_of_(?:anterior_descending_branch_of_left_coronary_artery|left_anterior_descending_artery)'),
+        # Upstream provenance note: in HuBMAP v1.1/VH_M_Heart.glb (and v2.0 asct-b-3d-models-crosswalk.csv -> FMA:3860),
+        # node VH_M_diagonal_branch_of_left_anterior_descending_artery is misnamed as a LAD diagonal branch,
+        # but geometrically runs posteriorly in the left AV sulcus (0.48 mm from LMCA, 0.10 mm from Left Marginal Artery,
+        # 0.18 mm from Coronary Sinus, 0.62 mm from Left Atrium) — anatomically the Left Circumflex Artery (LCx).
+        heart_mesh('Circumflex_artery_of_heart', 'Arteri Sirkumfleksa Kiri (LCx)',
+                   'Ramus circumflexus arteriae coronariae sinistrae', 'lcx',
+                   'diagonal_branch_of_left_anterior_descending_artery', 'l',
+                   english='Left circumflex coronary artery (LCx)'),
+        heart_mesh('Posterior_interventricular_artery', 'Arteri Interventrikular Posterior (PDA)',
+                   'Ramus interventricularis posterior', 'pda', 'right_posterior_descending_artery',
+                   english='Posterior interventricular artery (PDA)'),
+        heart_mesh('Right_marginal_artery', 'Arteri Marginal Kanan', 'Ramus marginalis dexter',
+                   'cor_marginal_r', 'right_marginal_artery', 'r'),
+        heart_mesh('Left_marginal_artery', 'Arteri Marginal Kiri', 'Ramus marginalis sinister',
+                   'cor_marginal_l', 'left_marginal_branch', 'l'),
+        heart_mesh('Diagonal_branches_of_lad_artery', 'Cabang Diagonal LAD',
+                   'Ramus lateralis arteriae interventricularis anterioris', 'cor_diagonal',
+                   'diagonal_branch_of_anterior_descending_branch_of_left_coronary_artery',
+                   english='Diagonal branch of left anterior descending artery'),
         heart_mesh('Coronary_sinus', 'Sinus Koronarius', 'Sinus coronarius', 'coronary_sinus', 'coronary_sinus'),
         heart_mesh('Great_cardiac_vein', 'Vena Jantung Besar', 'Vena cardiaca magna', 'great_cardiac', 'great_cardiac_vein'),
         heart_mesh('Middle_cardiac_vein', 'Vena Jantung Tengah', 'Vena cardiaca media', 'middle_cardiac', 'middle_cardiac_vein'),
-        heart_mesh('Small_cardiac_vein', 'Vena Jantung Kecil', 'Vena cardiaca parva', '', 'small_cardiac_vein'),
-        heart_mesh('Anterior_cardiac_vein', 'Vena Jantung Anterior', 'Vena cardiaca anterior', '', 'anterior_cardiac_vein'),
+        heart_mesh('Small_cardiac_vein', 'Vena Jantung Kecil', 'Vena cardiaca parva', 'small_cardiac', 'small_cardiac_vein'),
+        heart_mesh('Anterior_cardiac_vein', 'Vena Jantung Anterior', 'Vena cardiaca anterior', 'ant_cardiac', 'anterior_cardiac_vein'),
         heart_mesh('Oblique_vein_of_left_atrium', 'Vena Oblik Atrium Kiri', 'Vena obliqua atrii sinistri',
-                   '', 'oblique_vein_of_left_atrium', 'l'),
-        heart_mesh('Posterior_vein_of_left_ventricle', 'Vena Posterior Ventrikel Kiri', '',
-                   '', 'posterior_vein_of_left_ventricle', 'l'),
+                   'oblique_la_v', 'oblique_vein_of_left_atrium', 'l',
+                   english='Oblique vein of left atrium (vein of Marshall)'),
+        heart_mesh('Posterior_vein_of_left_ventricle', 'Vena Posterior Ventrikel Kiri',
+                   'Vena posterior ventriculi sinistri', 'cor_vein', 'posterior_vein_of_left_ventricle', 'l'),
     ]),
     ('Sirkulasi Paru', [
         heart_mesh('Pulmonary_trunk', 'Trunkus Pulmonalis', 'Truncus pulmonalis', 'pulm_trunk', 'pulmonary_trunk'),
-        *[heart_mesh(f'Pulmonary_artery_{side}', f'Arteri Pulmonalis {label}', '', 'pulm_artery',
-                     f'pulmonary_artery_{side.upper()}', side)
-          for side, label in [('r', 'Kanan'), ('l', 'Kiri')]],
-        *[heart_mesh(f'Pulmonary_vein_{level}_{side}', f'Vena Pulmonalis {label} {side_label}', '', 'pulm_vein',
-                     f'pulmonary_vein_{side.upper()}_{suffix}', side)
+        *[heart_mesh(f'Pulmonary_artery_{side}', f'Arteri Pulmonalis {label}', latin, 'pulm_artery',
+                     f'pulmonary_artery_{side.upper()}', side, english=eng, general=True)
+          for side, label, latin, eng in [
+              ('r', 'Kanan', 'Arteria pulmonalis dextra', 'Right pulmonary artery'),
+              ('l', 'Kiri', 'Arteria pulmonalis sinistra', 'Left pulmonary artery'),
+          ]],
+        *[heart_mesh(f'Pulmonary_vein_{level}_{side}', f'Vena Pulmonalis {label} {side_label}',
+                     f'Vena pulmonalis {side_lat} {level}', 'pulm_vein',
+                     f'pulmonary_vein_{side.upper()}_{suffix}', side,
+                     english=f'{side_eng} {level} pulmonary vein', general=True)
           for level, label, suffix in [('superior', 'Superior', 'sup'), ('inferior', 'Inferior', 'inf')]
-          for side, side_label in [('r', 'Kanan'), ('l', 'Kiri')]],
+          for side, side_label, side_lat, side_eng in [
+              ('r', 'Kanan', 'dextra', 'Right'),
+              ('l', 'Kiri', 'sinistra', 'Left'),
+          ]],
     ]),
     ('Aorta dan Cabang Besar', [
         heart_mesh('Ascending_aorta', 'Aorta Asendens', 'Aorta ascendens', 'aorta_asc', 'ascending_aorta'),
         heart_mesh('Aortic_arch', 'Arkus Aorta', 'Arcus aortae', 'aortic_arch', 'aortic_arch'),
-        heart_mesh('Descending_aorta', 'Aorta Desendens', 'Aorta descendens', '', 'descending_aorta_[ab]'),
+        heart_mesh('Descending_aorta', 'Aorta Desendens', 'Aorta descendens', 'aorta_thoracic', 'descending_aorta_[ab]'),
         heart_mesh('Brachiocephalic_trunk', 'Trunkus Brakiosefalika', 'Truncus brachiocephalicus',
                    'brachiocephalic', 'brachiocephalic_artery_[ab]'),
         heart_mesh('Left_common_carotid_artery', 'Arteri Karotis Komunis Kiri', 'Arteria carotis communis sinistra',
@@ -438,24 +521,28 @@ HEART = [
     ('Vena Besar', [
         heart_mesh('Superior_vena_cava', 'Vena Kava Superior', 'Vena cava superior', 'svc', 'superior_vena_cava'),
         heart_mesh('Inferior_vena_cava', 'Vena Kava Inferior', 'Vena cava inferior', 'ivc', 'inferior_vena_cava_[ab]'),
-        *[heart_mesh(f'Brachiocephalic_vein_{side}', f'Vena Brakiosefalika {label}', '', 'v_brachioceph',
-                     f'brachiocephalic_vein_{side.upper()}', side)
-          for side, label in [('r', 'Kanan'), ('l', 'Kiri')]],
+        *[heart_mesh(f'Brachiocephalic_vein_{side}', f'Vena Brakiosefalika {label}', latin, 'v_brachioceph',
+                     f'brachiocephalic_vein_{side.upper()}', side, english=eng, general=True)
+          for side, label, latin, eng in [
+              ('r', 'Kanan', 'Vena brachiocephalica dextra', 'Right brachiocephalic vein'),
+              ('l', 'Kiri', 'Vena brachiocephalica sinistra', 'Left brachiocephalic vein'),
+          ]],
     ]),
 ]
 
 
-def pair(name, label, latin, detail, source, pattern):
+def pair(name, label, latin, detail, source, pattern, english=None, general=False):
     parts = [(f'{source}_{side}', f'VH_M_{pattern.format(side=side.upper())}', side)
              for side in ('l', 'r')]
-    return mesh_item(name, label, latin, detail, *parts)
+    return mesh_item(name, label, latin, detail, *parts, english=english, general=general)
 
 
 URINARY = [
     ('Ginjal', [
         pair('Kidney', 'Ginjal (Kapsul)', 'Capsula renis', 'kidney', 'kidney', 'kidney_capsule_{side}'),
+        pair('Renal_hilum', 'Hilus Ginjal', 'Hilum renale', 'renal_hilum', 'kidney', 'hilum_of_kidney_{side}'),
         pair('Renal_cortex', 'Korteks Ginjal', 'Cortex renis', 'renal_cortex', 'kidney', 'outer_cortex_of_kidney_{side}'),
-        pair('Renal_column', 'Kolumna Ginjal', 'Columna renalis', '', 'kidney', 'renal_column_{side}'),
+        pair('Renal_column', 'Kolumna Ginjal', 'Columna renalis', 'renal_column', 'kidney', 'renal_column_{side}'),
         pair('Renal_papilla', 'Papila Ginjal', 'Papilla renalis', 'renal_papilla', 'kidney', 'renal_papilla_{side}_[a-j]'),
         mesh_item('Renal_pyramid', 'Piramida Ginjal', 'Pyramis renalis', 'renal_pyramid',
                   ('kidney_l', 'VH_M_renal_pyramid_L_[a-i]', 'l'), ('kidney_r', 'VH_M_renal_pyramid_[a-j]', 'r')),
@@ -467,14 +554,16 @@ URINARY = [
         pair('Ureter', 'Ureter', 'Ureter', 'ureter', 'ureter', 'ureter_{side}'),
         mesh_item('Urinary_bladder', 'Kandung Kemih', 'Vesica urinaria', 'bladder',
                   ('bladder', 'VH_M_(?:fundus_of_urinary_bladder_(?:dome|base1)|urinary_bladder_neck_smooth_muscle)', '')),
-        mesh_item('Bladder_trigone', 'Trigonum Kandung Kemih', 'Trigonum vesicae', '',
+        mesh_item('Bladder_trigone', 'Trigonum Kandung Kemih', 'Trigonum vesicae', 'bladder_trigone',
                   ('bladder', 'VH_M_trigone_of_urinary_bladder', '')),
-        mesh_item('Ureteral_orifice', 'Muara Ureter', 'Ostium ureteris', '',
+        mesh_item('Ureteral_orifice', 'Muara Ureter', 'Ostium ureteris', 'ureteral_orifice',
                   ('bladder', 'VH_M_ureteral_orifice_L', 'l'), ('bladder', 'VH_M_ureteral_orifice_R', 'r')),
-        mesh_item('Prostatic_urethra', 'Uretra Prostatika', 'Pars prostatica urethrae', '',
+        mesh_item('Prostatic_urethra', 'Uretra Prostatika', 'Pars prostatica urethrae', 'prostatic_urethra',
                   ('urethra', 'VH_M_prostatic_urethra', '')),
-        mesh_item('Remaining_urethra', 'Kelanjutan Uretra Pria', '', '',
-                  ('urethra', 'VH_M_other_urethra', '')),
+        mesh_item('Remaining_urethra', 'Uretra Membranosa & Spongiosa',
+                  'Pars membranacea et spongiosa urethrae masculinae', 'urethra_distal',
+                  ('urethra', 'VH_M_other_urethra', ''),
+                  english='Membranous and spongy male urethra'),
     ]),
 ]
 
@@ -485,21 +574,29 @@ LYMPH = [('Organ Limfoid', [
 ])]
 
 LYMPH_NODE = [('Bagian Nodus Limfatikus', [
-    mesh_item(name, label, latin, detail, ('node', f'Yao_{node}', ''))
-    for name, label, latin, detail, node in [
-        ('Lymph_node_capsule', 'Kapsul Nodus', 'Capsula nodi lymphoidei', 'node_capsule', 'capsule_of_lymph_node'),
-        ('Afferent_lymphatic_vessels', 'Pembuluh Limfe Aferen', 'Vasa lymphatica afferentia', 'node_afferent', 'afferent_lymphatic_vessel'),
-        ('Efferent_lymphatic_vessels', 'Pembuluh Limfe Eferen', 'Vasa lymphatica efferentia', 'node_efferent', 'efferent_lymph_node'),
-        ('Lymph_node_follicles', 'Folikel Limfoid', '', '', 'follicles'),
-        ('Lymph_node_paracortex', 'Parakorteks', '', '', 'paracortex'),
-        ('Lymph_node_medulla', 'Medula Nodus', '', '', 'medulla_of_lymph_node'),
-        ('Lymph_node_blood_vasculature', 'Pembuluh Darah Nodus', '', '', 'blood_vasculature'),
+    mesh_item(name, label, latin, detail, ('node', f'Yao_{node}', ''), english=eng)
+    for name, label, latin, eng, detail, node in [
+        ('Lymph_node_capsule', 'Kapsul Nodus', 'Capsula nodi lymphoidei', 'Lymph node capsule', 'node_capsule', 'capsule_of_lymph_node'),
+        ('Afferent_lymphatic_vessels', 'Pembuluh Limfe Aferen', 'Vasa lymphatica afferentia', 'Afferent lymphatic vessels', 'node_afferent', 'afferent_lymphatic_vessel'),
+        ('Efferent_lymphatic_vessels', 'Pembuluh Limfe Eferen', 'Vasa lymphatica efferentia', 'Efferent lymphatic vessels', 'node_efferent', 'efferent_lymph_node'),
+        ('Lymph_node_follicles', 'Folikel Limfoid', 'Folliculi lymphoidei nodi lymphoidei', 'Lymphoid follicles of lymph node', 'node_follicles', 'follicles'),
+        ('Lymph_node_paracortex', 'Parakorteks', 'Paracortex nodi lymphoidei', 'Paracortex of lymph node', 'node_paracortex', 'paracortex'),
+        ('Lymph_node_medulla', 'Medula Nodus', 'Medulla nodi lymphoidei', 'Medulla of lymph node', 'node_medulla', 'medulla_of_lymph_node'),
+        ('Lymph_node_blood_vasculature', 'Pembuluh Darah Nodus', 'Vasa sanguinea nodi lymphoidei', 'Blood vasculature of lymph node', 'node_vasculature', 'blood_vasculature'),
     ]
 ])]
 
 SMALL_BOWEL = [('Bagian Usus Halus', [
+    mesh_item('Duodenal_ampulla', 'Ampula Duodeni (Bulbus Duodeni)', 'Ampulla duodeni', 'duodenal_ampulla',
+              ('bowel', 'VH_M_duodenal_ampulla', ''), english='Duodenal ampulla (duodenal bulb)'),
     mesh_item('Duodenum', 'Duodenum', 'Duodenum', 'duodenum',
               ('bowel', 'VH_M_duodenum_(?:superior|descending|horizonal|ascending)', '')),
+    mesh_item('Hepatopancreatic_ampulla_sphincter', 'Sfingter Ampula Hepatopankreatika (Oddi)',
+              'Musculus sphincter ampullae hepatopancreaticae', 'sphincter_oddi',
+              ('bowel', 'VH_M_sphincter_of_hepatopancreatic_ampulla', ''),
+              english='Sphincter of hepatopancreatic ampulla (Sphincter of Oddi)'),
+    mesh_item('Minor_duodenal_papilla', 'Papila Duodeni Minor (Santorini)', 'Papilla duodeni minor', 'minor_papilla',
+              ('bowel', 'VH_M_papilla_of_santorini', ''), english='Minor duodenal papilla'),
     mesh_item('Jejunum', 'Jejunum', 'Jejunum', 'jejunum_hra', ('bowel', 'VH_M_jejunum', '')),
     mesh_item('Ileum', 'Ileum', 'Ileum', 'ileum', ('bowel', 'VH_M_ileum', '')),
     mesh_item('Terminal_ileum', 'Ileum Terminal', 'Ileum terminale', 'terminal_ileum', ('bowel', 'VH_M_ileum_terminal', '')),
@@ -512,9 +609,9 @@ LARGE_BOWEL = [('Bagian Usus Besar', [
         ('Ileocecal_valve', 'Katup Ileosekal', 'Valva ileocaecalis', 'ileocecal_valve', 'ileocecal_valve', 'r'),
         ('Vermiform_appendix', 'Apendiks Vermiformis', 'Appendix vermiformis', 'appendix', 'vermiform_appendix', 'r'),
         ('Ascending_colon', 'Kolon Asendens', 'Colon ascendens', 'colon_asc', 'ascending_colon', 'r'),
-        ('Hepatic_flexure_of_colon', 'Fleksura Hepatika', 'Flexura coli dextra', '', 'hepatic_flexure_of_colon', 'r'),
+        ('Hepatic_flexure_of_colon', 'Fleksura Hepatika', 'Flexura coli dextra', 'hepatic_flexure', 'hepatic_flexure_of_colon', 'r'),
         ('Transverse_colon', 'Kolon Transversum', 'Colon transversum', 'colon_trans', 'transverse_colon', ''),
-        ('Splenic_flexure_of_colon', 'Fleksura Splenika', 'Flexura coli sinistra', '', 'splenic_flexure_of_colon', 'l'),
+        ('Splenic_flexure_of_colon', 'Fleksura Splenika', 'Flexura coli sinistra', 'splenic_flexure', 'splenic_flexure_of_colon', 'l'),
         ('Descending_colon', 'Kolon Desendens', 'Colon descendens', 'colon_desc', 'descending_colon', 'l'),
         ('Sigmoid_colon', 'Kolon Sigmoid', 'Colon sigmoideum', 'colon_sig', 'sigmoid_colon', ''),
         ('Rectum', 'Rektum', 'Rectum', 'rectum', 'rectum', ''),
