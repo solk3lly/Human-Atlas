@@ -1,7 +1,7 @@
 """Losslessly upgrade the 13 legacy Z-Anatomy bundles to ha-mesh-v2 with generation hashes.
 
 For the six regional vessel layers (vsKa, vsKv, vsTo, vsAb, vsLe, vsTu), each mesh is matched back
-to its exact un-degraded quantized lattice in commit bc3f6f9 so that moving vessels across regional
+to its exact un-degraded quantized lattice in the base commit (`ec20533`) so that moving vessels across regional
 bundles never re-quantizes fine anatomy (restoring Central_retinal_artery from 230 -> 98 zero-area
 faces in vsKa with zero extra binary bytes).
 """
@@ -20,7 +20,7 @@ import import_hra
 
 VESSEL_LAYERS = ('vsKa', 'vsKv', 'vsTo', 'vsAb', 'vsLe', 'vsTu')
 OTHER_LEGACY_LAYERS = ('rangka', 'otot', 'saraf', 'organ', 'cerna', 'repro', 'endo')
-GIT_BASE_COMMIT = 'bc3f6f9'
+GIT_BASE_COMMIT = 'ec20533'
 
 
 def decode_any_bundle(data):
@@ -114,7 +114,7 @@ def main():
     git_pool = load_git_vessel_pool()
     staged_bundles = {}
 
-    # 1. Restore exact bc3f6f9 un-degraded quantization lattices for all 6 regional vessel layers
+    # 1. Restore exact pre-v2 un-degraded quantization lattices for all 6 regional vessel layers
     for layer in VESSEL_LAYERS:
         cur_data = json.loads((ROOT / 'data' / f'atlas_{layer}.json').read_bytes())
         cur_meshes = decode_any_bundle(cur_data)
@@ -122,12 +122,12 @@ def main():
         for name, q, f, mn_a, sc_a, v in cur_meshes:
             cands = git_pool.get((name, len(q), len(f)))
             if not cands:
-                raise ValueError(f'No bc3f6f9 match for {layer}/{name} ({len(q)}, {len(f)})')
+                raise ValueError(f'No {GIT_BASE_COMMIT} match for {layer}/{name} ({len(q)}, {len(f)})')
             best = min(cands, key=lambda c: float(np.max(np.abs(c[6] - v))))
             diff_um = float(np.linalg.norm(best[6] - v, axis=1).max() * 1e6)
             if diff_um > 25.0:
                 raise ValueError(f'Unexpected drift {diff_um:.2f}um matching {layer}/{name}')
-            # Keep the working-tree mesh name (e.g. Splenic_artery.l) with bc3f6f9's un-degraded (q, f, mn, sc)
+            # Keep the working-tree mesh name (e.g. Splenic_artery.l) with base commit's un-degraded (q, f, mn, sc)
             restored.append((name, best[2], best[3], best[4], best[5], best[6]))
         bundle = pack_exact_u16_v2(layer, restored, layers[layer]['g'])
         staged_bundles[layer] = bundle

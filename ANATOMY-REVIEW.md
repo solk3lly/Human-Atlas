@@ -1,6 +1,6 @@
 # Human Atlas anatomical accuracy review
 
-Reviewed at commit `bc3f6f9` on 25 November 2026.
+Reviewed at the initial pre-remediation baseline on 25 November 2026.
 
 ## Verdict
 
