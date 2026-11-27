@@ -1,5 +1,7 @@
 # Human Atlas Geometry & Packing Validation Report
 
+This report records the original 19-layer baseline. See the [model notice](../data/NOTICE.md) for the subsequent airway, female reproductive, and testis references.
+
 Generated directly from `tools/validate_geometry.py` against pinned HuBMAP `ccf-releases` commit `b036a91aaf7234f462b1249d4a5f4fb0e982f412` (all 12 source GLBs verified by SHA-256) and all 19 shipped `ha-mesh-v2` bundles.
 
 See [docs/research/packing-and-geometry-validation.md](research/packing-and-geometry-validation.md) for the primary specifications, morphometry studies, and tolerance derivations.

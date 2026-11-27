@@ -39,7 +39,7 @@ Website pembelajaran anatomi tubuh manusia dengan model 3D interaktif. Pengguna 
 
 ## Cakupan data
 
-Tampilan tubuh utama memakai model Z-Anatomy. Rujukan jantung, saluran kemih, limfatik, dan usus memakai model HuBMAP dalam koordinat sumbernya. Rangka konteks dinonaktifkan pada tampilan rujukan. Jumlah item merujuk pada struktur yang dapat dipilih di sidebar. Lihat [sumber model](data/NOTICE.md).
+Tampilan tubuh utama memakai model Z-Anatomy. Rujukan HuBMAP mempertahankan koordinat sumber. Testis VOXEL-MAN ditampilkan di tengah tampilan tersendiri. Rangka tubuh utama dinonaktifkan pada tampilan rujukan. [Sumber model](data/NOTICE.md)
 
 | Sistem | Item | Mesh | Segitiga | Catatan |
 |---|---:|---:|---:|---|
@@ -47,8 +47,11 @@ Tampilan tubuh utama memakai model Z-Anatomy. Rujukan jantung, saluran kemih, li
 | Otot | 212 | 462 | 845 rb | Badan otot 3D penuh dari Z-Anatomy (tanpa tempelan entesis); nama ID/Latin untuk otot utama |
 | Saraf | 120 | 237 | 78 rb | Saraf utama dan bagian medula spinalis |
 | Pernapasan | 48 | 52 | 127 rb | Paru, saluran napas, tulang rawan hidung dan laring kanan-kiri, pleura, dan diafragma |
+| Laring dan trakea (HRA) | 11 | 15 | 64 rb | Tulang rawan laring, otot vokalis, cincin trakea, karina, dan bronkus utama |
 | Pencernaan | 40 | 46 | 154 rb | Mulut, kelenjar ludah, saluran cerna, hati, empedu, pankreas, dan omentum |
-| Reproduksi pria | 10 | 15 | 22 rb | Testis hingga penis |
+| Reproduksi pria | 10 | 15 | 22 rb | Model sederhana testis dan duktus |
+| Testis (Visible Human) | 1 | 1 | 11 rb | Satu testis dewasa dari segmentasi 1 mm |
+| Reproduksi perempuan (HRA) | 11 | 19 | 74 rb | Uterus, serviks, ovarium, dan bagian tuba uterina |
 | Sistem Urinaria (HRA) | 15 | 81 | 242 rb | Ginjal (termasuk hilus), sistem pengumpul urine, ureter, kandung kemih, dan uretra pria |
 | Endokrin | 10 | 13 | 31 rb | Hipotalamus, hipofisis, pineal, tiroid, paratiroid, adrenal, timus |
 | Jantung dan pembuluh besar (HRA) | 46 | 51 | 317 rb | Empat ruang, empat katup, septum, pembuluh koroner (termasuk LCx), dan pembuluh besar |
@@ -83,7 +86,7 @@ python3 -m http.server 8000
 3. Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 4. Situs tersedia di `https://<username>.github.io/<repo>/`.
 
-Total data sekitar 70,5 MiB (73,9 MB); file terbesar sekitar 15,5 MiB (`atlas_vsKa.json`), di bawah batas 100 MB per file GitHub. Perlu diingat bahwa git menyimpan riwayat tiap perubahan file data.
+Total data model sekitar 72,3 MiB. Berkas terbesar adalah `atlas_vsKa.json` dengan ukuran sekitar 15,5 MiB.
 
 ## Struktur repositori
 
@@ -103,6 +106,9 @@ Total data sekitar 70,5 MiB (73,9 MB); file terbesar sekitar 15,5 MiB (`atlas_vs
 │   ├── atlas_organ.json    # pernapasan
 │   ├── atlas_cerna.json    # pencernaan
 │   ├── atlas_repro.json    # reproduksi pria
+│   ├── atlas_reproF.json   # rujukan reproduksi perempuan
+│   ├── atlas_testisRef.json # rujukan testis Visible Human
+│   ├── atlas_airway.json   # rujukan laring dan trakea
 │   ├── atlas_urin.json     # sistem urinaria (HRA)
 │   ├── atlas_endo.json     # endokrin
 │   ├── atlas_jantung.json  # jantung dan pembuluh besar (HRA)
@@ -220,8 +226,8 @@ Ikuti [petunjuk impor HuBMAP](data/NOTICE.md#hubmap-reference-models) untuk memb
 
 ## Keterbatasan yang diketahui
 
-- **Model tubuh pria**: organ reproduksi wanita tidak ada.
-- **Cakupan yang belum tersedia** meliputi kanalis analis, korda tendinea, nodus SA dan AV, perikardium, alveolus, laring bagian dalam, serta sebaran nodus dan pembuluh limfe seluruh tubuh. Tampilan reproduksi pria memakai model testis dan duktus yang disederhanakan.
+- Tampilan tubuh utama memakai model pria. Rujukan reproduksi perempuan memakai koordinat Visible Human Female.
+- Cakupan yang belum tersedia meliputi kanalis analis, korda tendinea, nodus SA dan AV, perikardium, alveolus, lipatan vokal utuh, serta sebaran nodus dan pembuluh limfe seluruh tubuh. Model testis pria berukuran kecil dan sambungan duktusnya belum lengkap. [Catatan sumber dan pengukuran](data/NOTICE.md)
 - **Asimetri model sumber Z-Anatomy**: audit langsung pada berkas sumber `Z-Anatomy/Startup.blend` mengonfirmasi bahwa `Vagus_nerve_(X).l` hanya dimodelkan hingga setinggi T4/arkus aorta (berbeda dari `Vagus_nerve_(X).r` yang turun hingga abdomen), serta pembuluh frenikus (`Superior_phrenic_arteries.r`, `Right_superior_phrenic_vein`, `Inferior_phrenic_artery.r`) hanya tersedia di sisi kanan pada sumber hulu. Otot `Articularis_genus` tidak memiliki mesh badan otot pada sumber Z-Anatomy (hanya bercak origo).
 - **Penjelasan umum** untuk sebagian besar cabang pembuluh darah, otot, dan saraf di luar struktur utama. Sebagian nama mengikuti label bahasa Inggris dari sumber.
 - **Kualitas model**: rangka, otot (QEM ringan hanya pada lembaran padat >2.200 segitiga melalui [`tools/rebuild_z_anatomy.py`](tools/rebuild_z_anatomy.py)), saraf, pernapasan, dan pencernaan telah disederhanakan; detail mikroskopis berkurang dibanding model mentahnya.
@@ -230,7 +236,7 @@ Ikuti [petunjuk impor HuBMAP](data/NOTICE.md#hubmap-reference-models) untuk memb
 
 ## Kredit
 
-- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)** — sumber 6 layer rujukan (jantung, sistem urinaria, limpa & timus, nodus limfatikus, usus halus, usus besar), dilisensikan [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Penulis dan pengembang model sumber: **Kristen Browne**, **Heidi Schlehlein**, serta **Arie Kaufman (Stony Brook University)** untuk usus besar. Daftar DOI dan commit sumber tercantum di [`data/NOTICE.md`](data/NOTICE.md).
+- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)** menyediakan delapan lapisan rujukan berlisensi [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Kredit diberikan kepada **Kristen Browne**, **Heidi Schlehlein**, dan **Arie Kaufman (Stony Brook University)** untuk usus besar. [DOI dan berkas sumber](data/NOTICE.md)
 - **[Z-Anatomy](https://github.com/Z-Anatomy/Models-of-human-anatomy)** — sumber model 3D tubuh utama (format Blender/OBJ), dilisensikan [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - **BodyParts3D** — © The Database Center for Life Science (DBCLS), Jepang. Basis data model 3D yang menjadi dasar Z-Anatomy (<https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>).
 - **[three.js](https://threejs.org/)** — pustaka rendering 3D (lisensi MIT), termasuk `OrbitControls`.

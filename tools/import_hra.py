@@ -44,6 +44,15 @@ PINNED_SHA256 = {
     ('v1.2', 'NIH_M_Lymph_Node'): '7b047002cbb1dc06f37baa441783390d76cdb444b6144d6caa623923707953fd',
     ('v1.2', 'VH_M_Small_Intestine'): 'e9d05a22c0132d375f8c242ad491ea68365681904cb391e648187de5247b4570',
     ('v1.2', 'SBU_M_Intestine_Large'): '84a66fb4e2dd07dffc284435da896284c3bddc5b6eb6f8e2f8c1b9130387b66b',
+    ('v1.1', 'VH_M_Lung'): '02d9b3330bec2c3a4c8f497415d8f7d6941647c4221a50be30cb8948e0ff86ab',
+    ('v1.4', '3d-vh-m-larynx'): 'f7073848c06ffabd084e5c56ba7bc613099a1f2d4bbcab729c4b485a48ed9cb2',
+    ('v1.4', '3d-vh-m-trachea'): '0ba59ac521b0265dd70868e1b722f986a04fe3b4fcc1db950260219dcf978aae',
+    ('v1.4', '3d-vh-m-main-bronchus'): '6db5b11213570514f9c2f637423cd1b369ed6a796fb2f661193b708aba1733fa',
+    ('v1.2', 'VH_F_Uterus'): 'a484956788ecc2ab05ca7720d9b33d265677e238f144cc28481aad2f7a0c9a95',
+    ('v1.2', 'VH_F_Ovary_L'): 'ed91414a667dec5e4e14aeaa2f8641731f06725dbc914bc0da3dd8b5d77f5062',
+    ('v1.2', 'VH_F_Ovary_R'): '99cc2b91602feacaee08ec1771b993fc0f8b0e32a08bdd7fd6b990a6736aa53b',
+    ('v1.2', 'VH_F_Fallopian_Tube_L'): '5025453048a83c26393b866bc69859a255b4c38816f34ed3a196bfe7d4f33dd1',
+    ('v1.2', 'VH_F_Fallopian_Tube_R'): '17aef41a430e068705dc21ac8ccf746a74f14f47ffc1a31908198b0b026849df',
 }
 
 
@@ -372,9 +381,14 @@ def _orient_closed_shell_outward(verts, faces):
 def build_layer(layer_key, model_files, groups, source_dir, verify_checksums=True):
     models = {}
     for key, (release, file) in model_files.items():
-        folder = 'v11' if release == 'v1.1' else 'v12'
+        folder = release.replace('.', '')
         expected = PINNED_SHA256.get((release, file)) if verify_checksums else None
         models[key] = read_glb(source_dir / folder / (file + '.glb'), expected_sha256=expected)
+    if 'vocalis' in models:
+        models['vocalis'] = {'VH_M_vocalis': models['vocalis']['VH_M_vocalis']}
+    if 'uterus' in models:
+        # This upstream node is at the uterine cornua, not the abdominal ends of the tubes.
+        del models['uterus']['VH_F_abdominal_ostium_of_uterine_tube']
 
     meshes, sidebar = [], []
     seam_counter = 0
@@ -618,6 +632,61 @@ LARGE_BOWEL = [('Bagian Usus Besar', [
     ]
 ])]
 
+AIRWAY = [
+    ('Laring', [
+        mesh_item('Thyroid_cartilage', 'Tulang Rawan Tiroid', 'Cartilago thyroidea', 'airway_thyroid',
+                  ('larynx', 'VH_M_thyroid_cartilage', '')),
+        mesh_item('Cricoid_cartilage', 'Tulang Rawan Krikoid', 'Cartilago cricoidea', 'airway_cricoid',
+                  ('larynx', 'VH_M_cricoid_cartilage', '')),
+        mesh_item('Epiglottic_cartilage', 'Tulang Rawan Epiglotis', 'Cartilago epiglottica', 'airway_epiglottis',
+                  ('larynx', 'VH_M_epiglottic_cartilage', '')),
+        *[mesh_item(name, label, latin, card,
+                   ('larynx', f'VH_M_{source}_L', 'l'), ('larynx', f'VH_M_{source}_R', 'r'))
+          for name, label, latin, card, source in [
+              ('Arytenoid_cartilage', 'Tulang Rawan Aritenoid', 'Cartilago arytenoidea', 'airway_arytenoid', 'arytenoid_cartilage'),
+              ('Corniculate_cartilage', 'Tulang Rawan Kornikulata', 'Cartilago corniculata', 'airway_corniculate', 'corniculate_cartilage'),
+          ]],
+        mesh_item('Vocalis_muscle', 'Otot Vokalis', 'Musculus vocalis', 'airway_vocalis', ('vocalis', 'VH_M_vocalis', '')),
+    ]),
+    ('Trakea dan Bronkus Utama', [
+        mesh_item('Trachea', 'Trakea', 'Trachea', 'trachea', ('trachea', 'VH_M_trachea', '')),
+        mesh_item('Tracheal_cartilage', 'Cincin Tulang Rawan Trakea', 'Cartilagines tracheales', 'airway_rings',
+                  ('trachea', 'VH_M_tracheal_cartilage', '')),
+        mesh_item('Carina', 'Karina Trakea', 'Carina tracheae', 'airway_carina', ('trachea', 'VH_M_carina', '')),
+        mesh_item('Main_bronchus', 'Bronkus Utama', 'Bronchus principalis', 'airway_bronchus',
+                  ('bronchus', 'VH_M_left_main_bronchus', 'l'), ('bronchus', 'VH_M_right_main_bronchus', 'r')),
+        mesh_item('Bronchial_cartilage', 'Tulang Rawan Bronkus Utama', 'Cartilagines bronchiales', 'airway_bronchial_cartilage',
+                  ('bronchus', 'VH_M_cartilage_of_the_main_bronchus_L', 'l'),
+                  ('bronchus', 'VH_M_cartilage_of_the_main_bronchus_R', 'r')),
+    ]),
+]
+
+FEMALE_REPRO = [
+    ('Uterus dan Serviks', [
+        mesh_item('Uterus', 'Uterus', 'Uterus', 'female_uterus',
+                  ('uterus', 'VH_F_(?:body_of_uterus|fundus_of_uterus|cornua|lower_uterine_segment)', '')),
+        *[mesh_item(name, label, latin, card, ('uterus', f'VH_F_{source}', ''))
+          for name, label, latin, card, source in [
+              ('Cervix', 'Serviks Uteri', 'Cervix uteri', 'female_cervix', 'cervix'),
+              ('Internal_cervical_os', 'Ostium Serviks Internal', 'Ostium internum uteri', 'female_os_internal', 'internal_cervical_os'),
+              ('External_cervical_os', 'Ostium Serviks Eksternal', 'Ostium externum uteri', 'female_os_external', 'external_cervical_os'),
+              ('Uterine_wall_anterior', 'Dinding Anterior Uterus', 'Paries anterior uteri', 'female_uterine_wall', 'anterior_wall_of_uterus'),
+              ('Uterine_wall_posterior', 'Dinding Posterior Uterus', 'Paries posterior uteri', 'female_uterine_wall', 'posterior_wall_of_uterus'),
+          ]],
+    ]),
+    ('Ovarium dan Tuba Uterina', [
+        mesh_item('Ovary', 'Ovarium', 'Ovarium', 'female_ovary',
+                  ('ovary_l', 'VH_F_left_ovary', 'l'), ('ovary_r', 'VH_F_right_ovary', 'r')),
+        *[mesh_item(name, label, latin, card, ('tube_l', f'VH_F_{source}_L', 'l'), ('tube_r', f'VH_F_{source}_R', 'r'))
+          for name, label, latin, card, source in [
+              ('Uterine_tube_isthmus', 'Istmus Tuba Uterina', 'Isthmus tubae uterinae', 'female_tube_isthmus', 'isthmus_of_fallopian_tube'),
+              ('Uterine_tube_ampulla', 'Ampula Tuba Uterina', 'Ampulla tubae uterinae', 'female_tube_ampulla', 'ampulla_of_uterine_tube'),
+              ('Uterine_tube_infundibulum', 'Infundibulum Tuba Uterina', 'Infundibulum tubae uterinae', 'female_tube_infundibulum', 'uterine_tube_infundibulum'),
+              ('Uterine_tube_fimbriae', 'Fimbria Tuba Uterina', 'Fimbriae tubae uterinae', 'female_tube_fimbriae', 'fibria_of_uterine_tube'),
+          ]],
+    ]),
+]
+
 REFERENCES = {
     'jantung': ({'heart': ('v1.1', 'VH_M_Heart')}, HEART),
     'urin': ({
@@ -629,12 +698,20 @@ REFERENCES = {
     'limfonodus': ({'node': ('v1.2', 'NIH_M_Lymph_Node')}, LYMPH_NODE),
     'ususHalus': ({'bowel': ('v1.2', 'VH_M_Small_Intestine')}, SMALL_BOWEL),
     'ususBesar': ({'bowel': ('v1.2', 'SBU_M_Intestine_Large')}, LARGE_BOWEL),
+    'airway': ({
+        'larynx': ('v1.4', '3d-vh-m-larynx'), 'trachea': ('v1.4', '3d-vh-m-trachea'),
+        'bronchus': ('v1.4', '3d-vh-m-main-bronchus'), 'vocalis': ('v1.1', 'VH_M_Lung'),
+    }, AIRWAY),
+    'reproF': ({
+        'uterus': ('v1.2', 'VH_F_Uterus'), 'ovary_l': ('v1.2', 'VH_F_Ovary_L'), 'ovary_r': ('v1.2', 'VH_F_Ovary_R'),
+        'tube_l': ('v1.2', 'VH_F_Fallopian_Tube_L'), 'tube_r': ('v1.2', 'VH_F_Fallopian_Tube_R'),
+    }, FEMALE_REPRO),
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('source_dir', type=Path, help='Directory containing the pinned GLB files in v11/ and v12/')
+    parser.add_argument('source_dir', type=Path, help='Directory containing the pinned GLB files in v11/, v12/ and v14/')
     parser.add_argument('--skip-checksums', action='store_true', help='Skip pinned SHA-256 verification (not recommended)')
     args = parser.parse_args()
 

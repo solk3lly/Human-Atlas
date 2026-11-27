@@ -36,12 +36,12 @@ A learning website for human anatomy with interactive 3D models. Users can rotat
 - **Skeleton context**: bones appear faintly behind muscles, nerves, and organs so their position is easy to understand.
 - **Description panel** as a card that can be opened, closed, and resized; the sidebar can be opened, closed, and resized.
 - **Light and dark themes** with a dotted background like a diagram canvas.
-- **Per-system loading (lazy loading)**: model data is downloaded only when a system is selected.
+- **Per-system loading** downloads models as needed. The viewer keeps the skeleton and up to two other layers, and renders on demand when idle.
 - Works on mobile (responsive layout).
 
 ## Data coverage
 
-The main body views use Z-Anatomy models. The heart, urinary, lymphatic, and bowel references use HuBMAP models in their source coordinate frame. The skeleton overlay is disabled in these reference views. Counts describe selectable sidebar items and packed mesh objects. See [model sources](data/NOTICE.md).
+The main body views use Z-Anatomy models. HuBMAP references retain their source coordinates. The VOXEL-MAN testis is centred in its own view. The main skeleton overlay is disabled for both reference sources. [Model sources](data/NOTICE.md)
 
 | System | Items | Meshes | Triangles | Notes |
 |---|---:|---:|---:|---|
@@ -49,8 +49,11 @@ The main body views use Z-Anatomy models. The heart, urinary, lymphatic, and bow
 | Muscles | 212 | 462 | 845 k | Full 3D muscle bellies from Z-Anatomy (no enthesis stickers); Indonesian/Latin names for main muscles |
 | Nerves | 120 | 237 | 78 k | Major nerves and portions of the spinal cord |
 | Respiratory | 48 | 52 | 127 k | Lungs, airways, bilateral nasal and laryngeal cartilage, pleura and diaphragm |
+| Larynx and trachea (HRA) | 11 | 15 | 64 k | Laryngeal cartilage, vocalis, tracheal rings, carina, and main bronchi |
 | Digestive | 40 | 46 | 154 k | Mouth, salivary glands, GI tract, liver, biliary system, pancreas and omenta |
-| Male reproductive | 10 | 15 | 22 k | Testis to penis |
+| Male reproductive | 10 | 15 | 22 k | Simplified testes and ducts |
+| Testis (Visible Human) | 1 | 1 | 11 k | One adult testis from a 1 mm segmentation |
+| Female reproductive (HRA) | 11 | 19 | 74 k | Uterus, cervix, ovaries, and uterine tube segments |
 | Urinary (HRA) | 15 | 81 | 242 k | Kidneys (incl. renal hila), collecting system, ureters, bladder and male urethra |
 | Endocrine | 10 | 13 | 31 k | Hypothalamus, pituitary, pineal, thyroid, parathyroids, adrenals, thymus |
 | Heart and great vessels (HRA) | 46 | 51 | 317 k | Four chambers, four valves, septum, coronary vessels (incl. LCx) and great vessels |
@@ -85,7 +88,7 @@ python3 -m http.server 8000
 3. Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 4. The site is available at `https://<username>.github.io/<repo>/`.
 
-Total data is about 70.5 MiB (73.9 MB); the largest file is about 15.5 MiB (`atlas_vsKa.json`), below GitHub's 100 MB per-file limit. Keep in mind that git stores the history of every change to the data files.
+The model bundles total about 72.3 MiB. The largest file is `atlas_vsKa.json` at about 15.5 MiB.
 
 ## Repository structure
 
@@ -105,6 +108,9 @@ Total data is about 70.5 MiB (73.9 MB); the largest file is about 15.5 MiB (`atl
 │   ├── atlas_organ.json    # respiratory
 │   ├── atlas_cerna.json    # digestive
 │   ├── atlas_repro.json    # male reproductive
+│   ├── atlas_reproF.json   # female reproductive reference
+│   ├── atlas_testisRef.json # Visible Human testis reference
+│   ├── atlas_airway.json   # larynx and trachea reference
 │   ├── atlas_urin.json     # urinary (HRA)
 │   ├── atlas_endo.json     # endocrine
 │   ├── atlas_jantung.json  # heart and great vessels (HRA)
@@ -222,8 +228,8 @@ Use [the HuBMAP import instructions](data/NOTICE.md#hubmap-reference-models) to 
 
 ## Known limitations
 
-- **Male body model**: female reproductive organs are not present.
-- **Coverage gaps** include the anal canal, chordae tendineae, SA and AV nodes, pericardium, alveoli, inner larynx, and whole-body lymphatic vessels and nodes. The original male reproductive view uses a simplified rendition of the testes and ducts.
+- The main atlas uses a male body model. The female reproductive reference uses the Visible Human Female coordinate frame.
+- Coverage gaps include the anal canal, chordae tendineae, SA and AV nodes, pericardium, alveoli, complete vocal folds, and whole-body lymphatic vessels and nodes. The simplified male reference has small testis meshes and a gap at the junction of the reproductive ducts. [Source and measurement notes](data/NOTICE.md)
 - **Upstream Z-Anatomy source asymmetries**: direct inspection of `Z-Anatomy/Startup.blend` confirms that `Vagus_nerve_(X).l` terminates at T4/aortic arch level upstream (whereas `Vagus_nerve_(X).r` continues into the abdomen), phrenic vessels (`Superior_phrenic_arteries.r`, `Right_superior_phrenic_vein`, `Inferior_phrenic_artery.r`) are modeled on the right side only, and `Articularis_genus` exists only as origin patches without a muscle-belly mesh.
 - **General explanations** for most minor blood vessels, muscles, and nerves outside the main structures. Some names come from English source labels.
 - **Model quality**: the skeleton, muscles (gentle QEM only on dense sheets >2,200 triangles via [`tools/rebuild_z_anatomy.py`](tools/rebuild_z_anatomy.py)), nerves, respiratory, and digestive systems were simplified; microscopic detail is reduced compared with the raw source.
@@ -232,7 +238,7 @@ Use [the HuBMAP import instructions](data/NOTICE.md#hubmap-reference-models) to 
 
 ## Credits
 
-- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)**: source of the 6 reference layers (heart, urinary, spleen & thymus, lymph node, small intestine, large intestine), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Authors & contributors: **Kristen Browne**, **Heidi Schlehlein**, and **Arie Kaufman (Stony Brook University)** for the large intestine. Full source DOIs and pinned commit are listed in [`data/NOTICE.md`](data/NOTICE.md).
+- **[HuBMAP Human Reference Atlas (HRA)](https://humanatlas.io/3d-reference-library)** supplies eight reference layers under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Credits include **Kristen Browne**, **Heidi Schlehlein**, and **Arie Kaufman (Stony Brook University)** for the large intestine. [Source DOIs and release files](data/NOTICE.md)
 - **[Z-Anatomy](https://github.com/Z-Anatomy/Models-of-human-anatomy)**: source of the main body 3D models (Blender/OBJ), licensed [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - **BodyParts3D**: © The Database Center for Life Science (DBCLS), Japan. The 3D model database on which Z-Anatomy is based (<https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html>).
 - **[three.js](https://threejs.org/)**: 3D rendering library (MIT license), including `OrbitControls`.
